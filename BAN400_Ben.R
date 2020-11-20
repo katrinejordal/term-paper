@@ -19,6 +19,7 @@ library(prophet)
 library(StanHeaders)
 library(quantmod)
 library(readxl)
+library (PxWebApiData)
 
 
 # COVID-19 data ----------------------------------------------------------------
@@ -226,6 +227,7 @@ head(EQNR)
 # Currency ---------------------------------------------------------------------
 
 currency_pair <- "NOK=X"
+
 getSymbols(currency_pair, auto.assign = TRUE)
 
 USD_NOK <- Cl(`NOK=X`)
@@ -248,11 +250,33 @@ brent_oil <- as.xts(
               brent_oil_actual / first(brent_oil_actual) * 100))
 
 
-# Economic data from SSB -------------------------------------------------
+# ------------------------------------------------------------------------------
+# Loading economic data from SSB using SSBs own package "PxWebApiData"
+# ------------------------------------------------------------------------------
 
-## GDP Norway
+# Choosing "makrostørrelse", "statistikkvariabel", "tid", directly in function
+# Separating SSBs date format into year and month, filter by 2020 values only
+# Keeping variables "total gdp", "date" and "normalized gdp", in correct format
 
-gdp <- read.csv2("https://data.ssb.no/api/v0/dataset/615167.csv?lang=no") %>%
+gdp_ssb <- ApiData(11721, 
+               Makrost = "bnpb.nr23_9", 
+               ContentsCode = "Løpende priser, sesongjustert (mill. kr)",
+               Tid = T)[[1]] %>%
+  separate(col = "måned", into = c("year", "month"), sep = "M") %>%
+  filter(year == "2020") %>%
+  transmute(amount = as.numeric(value),
+            date = as.Date(as.yearmon(paste(year, month), "%Y %m")),
+            normalized = amount / first(amount) * 100)
+
+gdp_xts <- xts(gdp$normalized, gdp$date) 
+colnames(gdp_xts) <- c("GDP")
+
+
+# Economic data from SSB -------------------------------------------------------
+
+## GDP Norway (Katrine får ikke denne til å virke uten: fileEncoding="Latin1")
+
+gdp_csv <- read.csv2("https://data.ssb.no/api/v0/dataset/615167.csv?lang=no", fileEncoding = "Latin1") %>%
   rename(macro = makrostørrelse, 
          time = måned,
          var = statistikkvariabel,
@@ -266,7 +290,7 @@ gdp <- read.csv2("https://data.ssb.no/api/v0/dataset/615167.csv?lang=no") %>%
   mutate(date = as.Date(date)) %>% 
   mutate(normalize = amount / first(amount) * 100)
 
-gdp <- xts(gdp$normalize, gdp$date)
+gdp_csv <- xts(gdp$normalize, gdp$date)
 
 ## GDP Norway excluding oil
 
