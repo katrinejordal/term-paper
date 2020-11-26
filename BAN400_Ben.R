@@ -352,10 +352,12 @@ NAV <- SSB_WF("Arbeidslause6")
 
 # Bankruptcies -----------------------------------------------------------------
 
-# Load data from SSB using SSBs own package "PxWebApiData"
-Bankruptcies <- ApiData(urlToData = 09695,
-                        ContentsCode = "Konkursar",
-                        Tid = T)[[1]] %>%
+# Bankruptcies per industry
+Bankruptcies <- ApiData(urlToData = 08551,
+                         Region = "Heile landet",
+                         NACE2007 = T,
+                         ContentsCode = "Konkurser",
+                         Tid = T)[[1]] %>%
   
   # Separate SSB date format into month and year
   separate(col = "måned",
@@ -366,268 +368,47 @@ Bankruptcies <- ApiData(urlToData = 09695,
   filter(year == "2020") %>%
   
   # Reformat, normalize and keep only the values needed
-  na.omit() %>%
-  transmute(
-    amount = as.numeric(value),
+  mutate(
+    value = as.numeric(value),
     date = as.Date(as.yearmon(paste(year, month), "%Y %m")),
-    normalized = amount / first(amount) * 100
-  )
+    normalized = value / first(value) * 100) %>% 
+  select(industry = "næring (SN2007)",
+         amount = "value",
+         "date",
+         "normalized")
 
+# Bankruptcies in total per month
+Bankruptcies_total <- subset(Bankruptcies) %>% 
+  filter(industry == "Alle næringar")
 
-bankruptcies <- read.csv2("https://data.ssb.no/api/v0/dataset/924816.csv?lang=no", fileEncoding = "Latin1") %>%
-  rename(time = måned,
-         variable = statistikkvariabel,
-         amount = X09695..Opna.konkursar..etter.måned.og.statistikkvariabel) %>% 
-  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-  filter(year == "2020") %>%
-  mutate(amount = as.numeric(amount)) %>% 
-  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-  mutate(date = as.Date(date)) %>% 
-  mutate(normalize = amount / first(amount) * 100)
+# Money supply -----------------------------------------------------------------
 
-bankruptcies <- xts(bankruptcies$normalize, bankruptcies$date)
+# Creating function to load SSB data
+SSB_MS <- function(macro_size) {
+  
+  # Load data from SSB using SSBs own package "PxWebApiData"
+  kpi_ssb <- ApiData(urlToData = 10945,
+                     ContentsCode = macro_size,
+                     Tid = T)[[1]] %>%
+    
+    # Separate SSB date format into month and year
+    separate(col = "måned",
+             into = c("year", "month"),
+             sep = "M") %>%
+    
+    # Filter values by year 2020 
+    filter(year == "2020") %>%
+    
+    # Reformat, normalize and keep only the values needed
+    transmute(amount = as.numeric(value),
+              date = as.Date(as.yearmon(paste(year, month), "%Y %m")),
+              normalized = amount / first(amount) * 100)
+}
 
-
-
-#gdp_ssb <- ApiData(11721, 
-#               Makrost = "bnpb.nr23_9", 
-#              ContentsCode = "Løpende priser, sesongjustert (mill. kr)",
-#               Tid = T)[[1]] %>%
-#  separate(col = "måned", into = c("year", "month"), sep = "M") %>%
-#  filter(year == "2020") %>%
-#  transmute(amount = as.numeric(value),
-#            date = as.Date(as.yearmon(paste(year, month), "%Y %m")),
-#            normalized = amount / first(amount) * 100)
-#
-#gdp_xts <- xts(gdp$normalized, gdp$date) 
-#colnames(gdp_xts) <- c("GDP")
-
-
-# Economic data from SSB -------------------------------------------------------
-
-## GDP Norway (Katrine får ikke denne til å virke uten: fileEncoding="Latin1")
-
-#gdp_csv <- read.csv2("https://data.ssb.no/api/v0/dataset/615167.csv?lang=no", fileEncoding = "Latin1") %>%
-#  rename(macro = makrostørrelse, 
-#         time = måned,
-#         var = statistikkvariabel,
-#         amount = X11721..Makroøkonomiske.hovedstørrelser..etter.makrostørrelse..måned.og.statistikkvariabel) %>% 
-#  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-#  filter(year == "2020",
-#         macro == "bnpb.nr23_9 Bruttonasjonalprodukt, markedsverdi",
-#         var == "Løpende priser, sesongjustert (mill. kr)") %>% 
-#  mutate(amount = as.numeric(amount)) %>% 
-#  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-#  mutate(date = as.Date(date)) %>% 
-#  mutate(normalize = amount / first(amount) * 100)
-#
-#gdp_csv <- xts(gdp$normalize, gdp$date)
-
-## GDP Norway excluding oil
-
-#gdp_ex_oil <- read.csv2("https://data.ssb.no/api/v0/dataset/615167.csv?lang=no") %>%
-#  rename(macro = makrostørrelse, 
-#         time = måned,
-#         var = statistikkvariabel,
-#         amount = X11721..Makroøkonomiske.hovedstørrelser..etter.makrostørrelse..måned.og.statistikkvariabel) %>% 
-#  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-#  filter(year == "2020",
-#         macro == "bnpb.nr23_9fn Bruttonasjonalprodukt Fastlands-Norge, markedsverdi",
-#         var == "Løpende priser, sesongjustert (mill. kr)") %>% 
-#  mutate(amount = as.numeric(amount)) %>% 
-#  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-#  mutate(date = as.Date(date)) %>% 
-#  mutate(normalize = amount / first(amount) * 100)
-
-#gdp_ex_oil <- xts(gdp_ex_oil$normalize, gdp_ex_oil$date)
-
-## Import
-
-#import <- read.csv2("https://data.ssb.no/api/v0/dataset/615167.csv?lang=no", fileEncoding = "Latin1") %>%
-#  rename(macro = makrostørrelse, 
-#         time = måned,
-#         var = statistikkvariabel,
-#         amount = X11721..Makroøkonomiske.hovedstørrelser..etter.makrostørrelse..måned.og.statistikkvariabel) %>% 
-#  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-#  filter(year == "2020",
-#         macro == "imp.nrtot Import i alt",
-#         var == "Løpende priser, sesongjustert (mill. kr)") %>% 
-#  filter(macro == "imp.nrtot Import i alt") %>% 
-#  filter(var == "Løpende priser, sesongjustert (mill. kr)") %>% 
-#  mutate(amount = as.numeric(amount)) %>% 
-#  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-#  mutate(date = as.Date(date)) %>% 
-#  mutate(normalize = amount / first(amount) * 100)
-
-#import <- xts(import$normalize, import$date)
-
-
-## Export
-
-#export <- read.csv2("https://data.ssb.no/api/v0/dataset/615167.csv?lang=no") %>%
-#  rename(macro = makrostørrelse, 
-#         time = måned,
-#         var = statistikkvariabel,
-#         amount = X11721..Makroøkonomiske.hovedstørrelser..etter.makrostørrelse..måned.og.statistikkvariabel) %>% 
-#  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-#  filter(year == "2020",
-#         macro == "eks.nrtot Eksport i alt",
-#         var == "Løpende priser, sesongjustert (mill. kr)") %>% 
-#  mutate(amount = as.numeric(amount)) %>% 
-#  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-#  mutate(date = as.Date(date)) %>% 
-#  mutate(normalize = amount / first(amount) * 100)
-
-#export <- xts(export$normalize, export$date)
-
-## Moneysupply M1
-
-m1 <- read.csv2("https://data.ssb.no/api/v0/dataset/172769.csv?lang=no") %>%
-  rename(var = statistikkvariabel, 
-         time = måned,
-         amount = X10945..Pengemengden.M1..M2.og.M3..etter.statistikkvariabel.og.måned) %>% 
-  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-  filter(year == "2020",
-         var == "Pengemengden M1. Beholdninger (mill. kr)") %>% 
-  mutate(amount = as.numeric(amount)) %>% 
-  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-  mutate(date = as.Date(date)) %>% 
-  mutate(normalize = amount / first(amount) * 100)
-
-m1 <- xts(m1$normalize, m1$date)
-
-## Moneysupply M2
-
-m2 <- read.csv2("https://data.ssb.no/api/v0/dataset/172769.csv?lang=no") %>%
-  rename(var = statistikkvariabel, 
-         time = måned,
-         amount = X10945..Pengemengden.M1..M2.og.M3..etter.statistikkvariabel.og.måned) %>% 
-  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-  filter(year == "2020",
-         var == "Pengemengden M2. Beholdninger (mill. kr)") %>% 
-  mutate(amount = as.numeric(amount)) %>% 
-  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-  mutate(date = as.Date(date)) %>% 
-  mutate(normalize = amount / first(amount) * 100)
-
-m2 <- xts(m2$normalize, m2$date)
-
-## Moneysupply M3
-
-m3 <- read.csv2("https://data.ssb.no/api/v0/dataset/172769.csv?lang=no") %>%
-  rename(var = statistikkvariabel, 
-         time = måned,
-         amount = X10945..Pengemengden.M1..M2.og.M3..etter.statistikkvariabel.og.måned) %>% 
-  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-  filter(year == "2020",
-         var == "Pengemengden M3. Beholdninger (mill. kr)") %>% 
-  mutate(amount = as.numeric(amount)) %>% 
-  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-  mutate(date = as.Date(date)) %>% 
-  mutate(normalize = amount / first(amount) * 100)
-
-m3 <- xts(m3$normalize, m3$date)
-
-## Inflation: KPI-JA
-
-#kpi_ja <- read.csv2("https://data.ssb.no/api/v0/dataset/1118.csv?lang=no") %>%
-#  rename(macro = konsumgruppe, 
-#         time = måned,
-#         var = statistikkvariabel,
-#         amount = X05327..KPI.JA.og.KPI.JAE..etter.konsumgruppe..måned.og.statistikkvariabel) %>% 
-#  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-#  filter(year == "2020",
-#         macro == "JA_TOTAL KPI-JA Totalindeks",
-#         var == "KPI-JA, KPI-JAE. KPI-JE og KPI-JEL (2015=100) Månedlig") %>% 
-#  # Since, SSB report ".." if NA and , as delimiter:
-#  mutate_all(~na_if(., "..")) %>% 
-#  mutate_at("amount", ~ as.numeric(sub(",", ".", amount, fixed = TRUE))) %>%
-#  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-#  mutate(date = as.Date(date)) %>% 
-#  mutate(normalize = amount / first(amount) * 100) # double check this
-
-#kpi_ja <- xts(kpi_ja$normalize, kpi_ja$date)
-
-## Inflation: KPI-JA
-
-#kpi_jae <- read.csv2("https://data.ssb.no/api/v0/dataset/1118.csv?lang=no") %>%
-#  rename(macro = konsumgruppe, 
-#         time = måned,
-#         var = statistikkvariabel,
-#         amount = X05327..KPI.JA.og.KPI.JAE..etter.konsumgruppe..måned.og.statistikkvariabel) %>% 
-#  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-#  filter(year == "2020",
-#         macro == "JAE_TOTAL KPI-JAE Totalindeks",
-#         var == "KPI-JA, KPI-JAE. KPI-JE og KPI-JEL (2015=100) Månedlig") %>% 
-  # Since, SSB report ".." if NA and , as delimiter:
-#  mutate_all(~na_if(., "..")) %>% 
-#  mutate_at("amount", ~ as.numeric(sub(",", ".", amount, fixed = TRUE))) %>%
-#  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-#  mutate(date = as.Date(date)) %>% 
-#  mutate(normalize = amount / first(amount) * 100) # double check this
-
-#kpi_jae <- xts(kpi_jae$normalize, kpi_jae$date)
-
-
-## Unemployment (AKU)
-
-#aku <- read.csv2("https://data.ssb.no/api/v0/dataset/1054.csv?lang=no") %>%
-#  rename(sex = kjønn,
-#         age = alder,
-#         time = måned,
-#         var = statistikkvariabel,
-#         amount = X08931..Sysselsetting.og.arbeidsløyse.for.personar.15.74.år..etter.kjønn..alder..statistikkvariabel.og.måned) %>% 
-#  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-#  filter(year == "2020",
-#         sex == "0 Begge kjønn",
-#         age == "15-74 15-74 år",
-#         var == "Arbeidslause (AKU) (1 000 personar), sesongjustert") %>% 
-#  mutate_all(~na_if(., "..")) %>% 
-#  mutate(amount = as.numeric(amount)) %>% 
-#  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-#  mutate(date = as.Date(date)) %>% 
-#  mutate(normalize = amount / first(amount) * 100)
-
-#aku <- xts(aku$normalize, aku$date)
-
-
-## Unemployment (NAV)
-
-#nav <- read.csv2("https://data.ssb.no/api/v0/dataset/1054.csv?lang=no") %>%
-#  rename(sex = kjønn,
-#         age = alder,
-#         time = måned,
-#         var = statistikkvariabel,
-#         amount = X08931..Sysselsetting.og.arbeidsløyse.for.personar.15.74.år..etter.kjønn..alder..statistikkvariabel.og.måned) %>% 
-#  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-#  filter(year == "2020",
-#         sex == "0 Begge kjønn",
-#         age == "15-74 15-74 år",
-#         var == "Registrerte arbeidslause ved NAV (1 000 personar), sesongjustert") %>%
-#  mutate_all(~na_if(., "..")) %>% 
-#  mutate(amount = as.numeric(amount)) %>% 
-#  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-#  mutate(date = as.Date(date)) %>% 
-#  mutate(normalize = amount / first(amount) * 100)
-
-#nav <- xts(nav$normalize, nav$date)
-
-## Bankruptcies
-
-bankruptcies <- read.csv2("https://data.ssb.no/api/v0/dataset/924816.csv?lang=no") %>%
-  rename(time = måned,
-         variable = statistikkvariabel,
-         amount = X09695..Opna.konkursar..etter.måned.og.statistikkvariabel) %>% 
-  separate(col = "time", into = c("year", "month"), sep = "M") %>% 
-  filter(year == "2020") %>%
-  mutate(amount = as.numeric(amount)) %>% 
-  mutate(date = as.yearmon(paste(year, month), "%Y %m")) %>%
-  mutate(date = as.Date(date)) %>% 
-  mutate(normalize = amount / first(amount) * 100)
-
-bankruptcies <- xts(bankruptcies$normalize, bankruptcies$date)
-
-
+# Using the function
+M1 <- SSB_MS("PengmengdBehM1")
+M2 <- SSB_MS("PengmengdBehM2")
+M3 <- SSB_MS("PengmengdBehM3")
 
 # Merge all data ---------------------------------------------------------------
 
