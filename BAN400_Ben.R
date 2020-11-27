@@ -75,6 +75,10 @@ google <- xts(gtrend$searches, gtrend$date)
 # Webscraping via investing.com could be a possibility. But seems like python
 # is only option..
 # For now, we download data from oslobors.no to xls files. 
+#-------------------------------------------------------------------------------
+#            OBS DENNE DELEN MÅ AVVENTES MED PGA FLYTTING OSLO BØRS
+#            WORST CASE EFFEKTIVISER KODEN (!) OG BRUK EXCEL FILER
+#-------------------------------------------------------------------------------
 
 # OSEBX
 osebx_xl <- read_excel("OSEBX.xlsx") %>% 
@@ -260,36 +264,36 @@ brent_oil <- as.xts(
 
 # Gross Domestic Product, import and export ------------------------------------
 
-SSB_data <- function(macro_size) {
-  
+ssb_data <- function(macro_size) {
+
   ApiData(urlToData = 11721,
           Makrost = macro_size,
           ContentsCode = "Løpende priser, sesongjustert (mill. kr)",
           Tid = T) [[1]]
 }
 
-GDP <- SSB_data("bnpb.nr23_9")            # GDP including oil
-GDP_ex_oil <- SSB_data("bnpb.nr23_9fn")   # GDP excluding oil
-Import <- SSB_data("imp.nrtot")           
-Export <- SSB_data("eks.nrtot")
+gdp <- ssb_data("bnpb.nr23_9")            # GDP including oil
+gdp_ex_oil <- ssb_data("bnpb.nr23_9fn")   # GDP excluding oil
+import <- ssb_data("imp.nrtot")           
+export <- ssb_data("eks.nrtot")
 
 
 # Consumer Price Index ---------------------------------------------------------
 
-SSB_CPI <- function(macro_size) {
+ssb_cpi <- function(macro_size) {
   ApiData(urlToData = 05327,
           Konsumgrp = macro_size,
           ContentsCode = "KPIJustIndMnd",
           Tid = T) [[1]] 
 }
 
-CPI_JA <- SSB_KPI("JA_TOTAL")    # Adjusted for tax changes
-CPI_JAE <- SSB_KPI("JAE_TOTAL")  # Adjusted for tax changes, ex. energy products
+cpi_ja <- SSB_KPI("JA_TOTAL")    # Adjusted for tax changes
+cpi_jae <- SSB_KPI("JAE_TOTAL")  # Adjusted for tax changes, ex. energy products
 
 
 # Unemployment, both LFS (AKU) and NAV -----------------------------------------
 
-SSB_WF <- function(macro_size) {
+ssb_wf <- function(macro_size) {
   
   ApiData(urlToData = 08931,
           Kjonn = "0",
@@ -298,22 +302,22 @@ SSB_WF <- function(macro_size) {
           Tid = T) [[1]] 
 }
 
-LFS <- SSB_WF("Arbeidslause2")
-NAV <- SSB_WF("Arbeidslause6")
+lfs <- ssb_wf("Arbeidslause2")
+nav <- ssb_wf("Arbeidslause6")
 
 
 # Money supply -----------------------------------------------------------------
 
-SSB_MS <- function(macro_size) {
+ssb_ms <- function(macro_size) {
   
   ApiData(urlToData = 10945,
           ContentsCode = macro_size,
           Tid = T) [[1]] 
 }
 
-M1 <- SSB_MS("PengmengdBehM1")
-M2 <- SSB_MS("PengmengdBehM2")
-M3 <- SSB_MS("PengmengdBehM3")
+m1 <- ssb_ms("PengmengdBehM1")
+m2 <- ssb_ms("PengmengdBehM2")
+m3 <- ssb_ms("PengmengdBehM3")
 
 
 # Data manipulation ------------------------------------------------------------
@@ -336,23 +340,23 @@ cleanup <- function(data_frame) {
               normalized = amount / first(amount) * 100)
 }
 
-GDP <- cleanup(GDP)
-GDP_ex_oil <- cleanup(GDP_ex_oil)
-Import <- cleanup(Import)
-Export <- cleanup(Export)
-CPI_JA <- cleanup(KPI_JA)
-CPI_JAE <- cleanup(KPI_JAE)
-LFS <- cleanup(AKU)
-NAV <- cleanup(NAV)
-M1 <- cleanup(M1)
-M2 <- cleanup(M2)
-M3 <- cleanup(M3)
+gdp <- cleanup(gdp)
+gdp_ex_oil <- cleanup(gdp_ex_oil)
+import <- cleanup(import)
+export <- cleanup(export)
+cpi_ja <- cleanup(cpi_ja)
+cpi_jae <- cleanup(cpi_jae)
+lfs <- cleanup(lfs)
+nav <- cleanup(nav)
+m1 <- cleanup(m1)
+m2 <- cleanup(m2)
+m3 <- cleanup(m3)
 
 
 # Bankruptcies -----------------------------------------------------------------
 
 # Bankruptcies per industry each month
-Bankruptcies <- ApiData(urlToData = 08551,
+bankruptcies <- ApiData(urlToData = 08551,
                         Region = "Heile landet",
                         NACE2007 = T,
                         ContentsCode = "Konkurser",
@@ -376,7 +380,7 @@ Bankruptcies <- ApiData(urlToData = 08551,
          "normalized")
 
 # Bankruptcies in total per month
-Bankruptcies_total <- subset(Bankruptcies) %>% 
+bankruptcies_total <- subset(bankruptcies) %>% 
   filter(industry == "Alle næringar")
 
 # Merge all data ---------------------------------------------------------------
