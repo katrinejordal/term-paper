@@ -254,87 +254,77 @@ brent_oil <- as.xts(
 # Loading economic data from SSB using SSBs own package "PxWebApiData"
 # ------------------------------------------------------------------------------
 
-# The different macroeconomic values are presented in different data sets at SSB
-# with variable names differing somewhat. This made it necessary to create a 
-# function for each data set we wanted to load data from. 
+# Different macroeconomic values are presented in different data sets at SSB,
+# with variable names differing somewhat in each data set. We therefore created
+# one function for each data set we wanted to load data from.
 
-# GDP, import, export ----------------------------------------------------------
+# Gross Domestic Product, import and export ------------------------------------
 
-# Creating function to load SSB data
 SSB_data <- function(macro_size) {
   
-  # Load data from SSB using SSBs own package "PxWebApiData"
-  gdp_ssb <- ApiData(urlToData = 11721,
-                     Makrost = macro_size,
-                     ContentsCode = "Løpende priser, sesongjustert (mill. kr)",
-                     Tid = T)[[1]] %>%
-    
-    # Separate SSB date format into month and year
-    separate(col = "måned",
-             into = c("year", "month"),
-             sep = "M") %>%
-    
-    # Filter values by year 2020 
-    filter(year == "2020") %>%
-    
-    # Reformat, normalize and keep only the values needed
-    transmute(amount = as.numeric(value),
-              date = as.Date(as.yearmon(paste(year, month), "%Y %m")),
-              normalized = amount / first(amount) * 100)
+  ApiData(urlToData = 11721,
+          Makrost = macro_size,
+          ContentsCode = "Løpende priser, sesongjustert (mill. kr)",
+          Tid = T) [[1]]
 }
 
-# Using the function
-GDP <- SSB_data("bnpb.nr23_9")
-GDP_ex_oil <- SSB_data("bnpb.nr23_9fn")
-Import <- SSB_data("imp.nrtot")
+GDP <- SSB_data("bnpb.nr23_9")            # GDP including oil
+GDP_ex_oil <- SSB_data("bnpb.nr23_9fn")   # GDP excluding oil
+Import <- SSB_data("imp.nrtot")           
 Export <- SSB_data("eks.nrtot")
 
 
-# KPI --------------------------------------------------------------------------
+# Consumer Price Index ---------------------------------------------------------
 
-# Creating function to load SSB data
-SSB_KPI <- function(macro_size) {
-  
-  # Load data from SSB using SSBs own package "PxWebApiData"
-  kpi_ssb <- ApiData(urlToData = 05327,
-                     Konsumgrp = macro_size,
-                     ContentsCode = "KPIJustIndMnd",
-                     Tid = T)[[1]] %>%
-    
-    # Separate SSB date format into month and year
-    separate(col = "måned",
-             into = c("year", "month"),
-             sep = "M") %>%
-    
-    # Filter values by year 2020 
-    filter(year == "2020") %>%
-    
-    # Reformat, normalize and keep only the values needed
-    transmute(amount = as.numeric(value),
-              date = as.Date(as.yearmon(paste(year, month), "%Y %m")),
-              normalized = amount / first(amount) * 100)
+SSB_CPI <- function(macro_size) {
+  ApiData(urlToData = 05327,
+          Konsumgrp = macro_size,
+          ContentsCode = "KPIJustIndMnd",
+          Tid = T) [[1]] 
 }
 
-# Using the function
-KPI_JA <- SSB_KPI("JA_TOTAL")
-KPI_JAE <- SSB_KPI("JAE_TOTAL")
+CPI_JA <- SSB_KPI("JA_TOTAL")    # Adjusted for tax changes
+CPI_JAE <- SSB_KPI("JAE_TOTAL")  # Adjusted for tax changes, ex. energy products
 
-# Unemployment -----------------------------------------------------------------
 
-# Creating function to load SSB data
+# Unemployment, both LFS (AKU) and NAV -----------------------------------------
+
 SSB_WF <- function(macro_size) {
   
-  # Load data from SSB using SSBs own package "PxWebApiData"
-  WF_ssb <- ApiData(urlToData = 08931,
-                    Kjonn = "0",
-                    Alder = "15-74",
-                    ContentsCode = macro_size,
-                    Tid = T)[[1]] %>%
-    
-    # Separate SSB date format into month and year
-    separate(col = "måned",
-             into = c("year", "month"),
-             sep = "M") %>%
+  ApiData(urlToData = 08931,
+          Kjonn = "0",
+          Alder = "15-74",
+          ContentsCode = macro_size,
+          Tid = T) [[1]] 
+}
+
+LFS <- SSB_WF("Arbeidslause2")
+NAV <- SSB_WF("Arbeidslause6")
+
+
+# Money supply -----------------------------------------------------------------
+
+SSB_MS <- function(macro_size) {
+  
+  ApiData(urlToData = 10945,
+          ContentsCode = macro_size,
+          Tid = T) [[1]] 
+}
+
+M1 <- SSB_MS("PengmengdBehM1")
+M2 <- SSB_MS("PengmengdBehM2")
+M3 <- SSB_MS("PengmengdBehM3")
+
+
+# Data manipulation ------------------------------------------------------------
+
+cleanup <- function(data_frame) {
+  
+  # Separate SSB date format into month and year
+  separate(data = data_frame,
+           col = "måned",
+           into = c("year", "month"),
+           sep = "M") %>%
     
     # Filter values by year 2020 
     filter(year == "2020") %>%
@@ -346,18 +336,27 @@ SSB_WF <- function(macro_size) {
               normalized = amount / first(amount) * 100)
 }
 
-# Using the function
-AKU <- SSB_WF("Arbeidslause2")
-NAV <- SSB_WF("Arbeidslause6")
+GDP <- cleanup(GDP)
+GDP_ex_oil <- cleanup(GDP_ex_oil)
+Import <- cleanup(Import)
+Export <- cleanup(Export)
+CPI_JA <- cleanup(KPI_JA)
+CPI_JAE <- cleanup(KPI_JAE)
+LFS <- cleanup(AKU)
+NAV <- cleanup(NAV)
+M1 <- cleanup(M1)
+M2 <- cleanup(M2)
+M3 <- cleanup(M3)
+
 
 # Bankruptcies -----------------------------------------------------------------
 
-# Bankruptcies per industry
+# Bankruptcies per industry each month
 Bankruptcies <- ApiData(urlToData = 08551,
-                         Region = "Heile landet",
-                         NACE2007 = T,
-                         ContentsCode = "Konkurser",
-                         Tid = T)[[1]] %>%
+                        Region = "Heile landet",
+                        NACE2007 = T,
+                        ContentsCode = "Konkurser",
+                        Tid = T)[[1]] %>%
   
   # Separate SSB date format into month and year
   separate(col = "måned",
@@ -368,10 +367,9 @@ Bankruptcies <- ApiData(urlToData = 08551,
   filter(year == "2020") %>%
   
   # Reformat, normalize and keep only the values needed
-  mutate(
-    value = as.numeric(value),
-    date = as.Date(as.yearmon(paste(year, month), "%Y %m")),
-    normalized = value / first(value) * 100) %>% 
+  mutate(value = as.numeric(value),
+         date = as.Date(as.yearmon(paste(year, month), "%Y %m")),
+         normalized = value / first(value) * 100) %>% 
   select(industry = "næring (SN2007)",
          amount = "value",
          "date",
@@ -380,35 +378,6 @@ Bankruptcies <- ApiData(urlToData = 08551,
 # Bankruptcies in total per month
 Bankruptcies_total <- subset(Bankruptcies) %>% 
   filter(industry == "Alle næringar")
-
-# Money supply -----------------------------------------------------------------
-
-# Creating function to load SSB data
-SSB_MS <- function(macro_size) {
-  
-  # Load data from SSB using SSBs own package "PxWebApiData"
-  kpi_ssb <- ApiData(urlToData = 10945,
-                     ContentsCode = macro_size,
-                     Tid = T)[[1]] %>%
-    
-    # Separate SSB date format into month and year
-    separate(col = "måned",
-             into = c("year", "month"),
-             sep = "M") %>%
-    
-    # Filter values by year 2020 
-    filter(year == "2020") %>%
-    
-    # Reformat, normalize and keep only the values needed
-    transmute(amount = as.numeric(value),
-              date = as.Date(as.yearmon(paste(year, month), "%Y %m")),
-              normalized = amount / first(amount) * 100)
-}
-
-# Using the function
-M1 <- SSB_MS("PengmengdBehM1")
-M2 <- SSB_MS("PengmengdBehM2")
-M3 <- SSB_MS("PengmengdBehM3")
 
 # Merge all data ---------------------------------------------------------------
 
