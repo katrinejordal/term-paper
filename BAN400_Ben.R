@@ -196,9 +196,11 @@ m2 <- cleanup(m2)
 m3 <- cleanup(m3)
 
 # Prøver å lage en loop eller funksjon som tar cleanup på alle data frames i 
-# stedet for å gjøre det for alle df hver for seg.....
+# stedet for å gjøre det for alle df hver for seg. Kodene under gjør det, men
+# navnene på data frames forsvinner...
 
-#values <- list(gdp, gdp_ex_oil, import, export, cpi_ja, cpi_jae, lfs, nav, m1,               m2, m3)
+#values <- list(gdp, gdp_ex_oil, import, export, cpi_ja, cpi_jae, lfs, nav, m1,
+# m2, m3)
 #res <- lapply(values, head, cleanup)
 #for (i in 1:length(res)) {
 #  assign(paste0("res", i), as.data.frame(res[[i]]))
