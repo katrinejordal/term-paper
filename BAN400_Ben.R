@@ -287,8 +287,8 @@ ssb_cpi <- function(macro_size) {
           Tid = T) [[1]] 
 }
 
-cpi_ja <- SSB_KPI("JA_TOTAL")    # Adjusted for tax changes
-cpi_jae <- SSB_KPI("JAE_TOTAL")  # Adjusted for tax changes, ex. energy products
+cpi_ja <- ssb_cpi("JA_TOTAL")    # Adjusted for tax changes
+cpi_jae <- ssb_cpi("JAE_TOTAL")  # Adjusted for tax changes, ex. energy products
 
 
 # Unemployment, both LFS (AKU) and NAV -----------------------------------------
@@ -337,7 +337,7 @@ cleanup <- function(data_frame) {
     na.omit() %>% 
     transmute(amount = as.numeric(value),
               date = as.Date(as.yearmon(paste(year, month), "%Y %m")),
-              normalized = amount / first(amount) * 100)
+              normalized = amount / max(amount) * 100)
 }
 
 gdp <- cleanup(gdp)
@@ -352,38 +352,52 @@ m1 <- cleanup(m1)
 m2 <- cleanup(m2)
 m3 <- cleanup(m3)
 
+# Prøver å lage en loop eller funksjon som tar cleanup på alle data frames i 
+# stedet for å gjøre det for alle df hver for seg.....
+
+#values <- list(gdp, gdp_ex_oil, import, export, cpi_ja, cpi_jae, lfs, nav, m1,               m2, m3)
+#res <- lapply(values, head, cleanup)
+#for (i in 1:length(res)) {
+#  assign(paste0("res", i), as.data.frame(res[[i]]))
+#}
+
 
 # Bankruptcies -----------------------------------------------------------------
 
+bankrupt <- function(industry) {
+  
+  ApiData(urlToData = 08551,
+          Region = "Heile landet", 
+          NACE2007 = industry, 
+          ContentsCode = "Konkurser",
+          Tid = T)[[1]] %>% 
+    
+    # Separate SSB date format into month and year
+    separate(col = "måned",
+             into = c("year", "month"),
+             sep = "M") %>%
+    
+    # Filter values by year 2020
+    filter(year == "2020") %>% 
+    # Reformat, normalize and keep only the values needed
+    mutate(value = as.numeric(value),
+           date = as.Date(as.yearmon(paste(year, month), "%Y %m"))) %>% 
+    select(industry = "næring (SN2007)",
+           amount = "value",
+           "date")
+}
+  
 # Bankruptcies per industry each month
-bankruptcies <- ApiData(urlToData = 08551,
-                        Region = "Heile landet",
-                        NACE2007 = T,
-                        ContentsCode = "Konkurser",
-                        Tid = T)[[1]] %>%
+bankruptcies <- bankrupt(T) %>% 
+  filter(industry != "Alle næringar") %>% 
+  mutate(normalized = amount / max(amount) * 100)
   
-  # Separate SSB date format into month and year
-  separate(col = "måned",
-           into = c("year", "month"),
-           sep = "M") %>%
-  
-  # Filter values by year 2020
-  filter(year == "2020") %>%
-  
-  # Reformat, normalize and keep only the values needed
-  mutate(value = as.numeric(value),
-         date = as.Date(as.yearmon(paste(year, month), "%Y %m")),
-         normalized = value / first(value) * 100) %>% 
-  select(industry = "næring (SN2007)",
-         amount = "value",
-         "date",
-         "normalized")
+# Bankruptcies in total each month
+bankruptcies_total <- bankrupt("Alle næringar") %>% 
+  mutate(normalized = amount / max(amount) * 100)
 
-# Bankruptcies in total per month
-bankruptcies_total <- subset(bankruptcies) %>% 
-  filter(industry == "Alle næringar")
 
-# Merge all data ---------------------------------------------------------------
+# Merge all economic data into one data frame ----------------------------------
 
 start_date <- as.Date("2020-01-01")
 end_date <- Sys.Date()
