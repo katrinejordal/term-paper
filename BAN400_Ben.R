@@ -24,208 +24,51 @@ library (PxWebApiData)
 
 # COVID-19 data ----------------------------------------------------------------
 
-data_covid <- covid19.data(case = "ts-confirmed")
+cases_covid <- covid19.data(case = "ts-confirmed") %>%
+  filter(Country.Region == "Norway") %>%
+  gather(date, confirmed_cases) %>%
+  slice(5:n()) %>%
+  as_tibble() %>%
+  mutate(date = ymd(date),
+         confirmed_cases = as.numeric(confirmed_cases),
+         new_cases = confirmed_cases - lag(
+           confirmed_cases,
+           n = 1,
+           default = first(confirmed_cases)
+    )
+  )
+ 
+#covid_total <- tibble(cases_covid[, c("confirmed_cases", "date")])
+#covid_daily <- tibble(cases_covid[, c("new_cases", "date")])
 
-cases <- data_covid %>% 
-  filter(Country.Region == "Norway") %>% 
-  gather(date, confirmed_cases) %>% 
-  slice(5:n()) %>% 
-  as_tibble() %>% 
-  mutate(date = ymd(date)) %>% 
-  mutate_at("confirmed_cases", ~ as.numeric(.)) %>% 
-  mutate(new_cases = 
-           confirmed_cases - lag(confirmed_cases, 
-                                 n = 1,
-                                 default = first(confirmed_cases)))
-
-covid_total <- xts(cases$confirmed_cases, cases$date)
-covid_daily <- xts(cases$new_cases, cases$date)
 
 # Google trends data -----------------------------------------------------------
+gtrend_search <- function(search_word, country, MA = 1) {
+ 
+  # Updating the date
+  timespan <- paste("2020-01-01", Sys.Date())
+  
+  # Changing country name to country code
+  countrycode <- countrycode(country, 
+                             origin = "country.name", 
+                             destination = "iso2c")
+  
+  # Loading google trend data
+  google_trends <- gtrends(keyword = search_word,
+                           time = timespan,
+                           geo = "NO") [[1]] %>%
+    select(date, hits) %>%
+    mutate(date = ymd(date)) %>%
+    mutate_at("hits", ~ ifelse(. == "<1", 0, .)) %>%
+    mutate_at("hits", ~ as.numeric(.)) %>%
+    rename(searches = hits)
+  
+}
 
-search_word <- "corona"
-country <- "Norway"
-timespan <- paste("2020-01-01", Sys.Date())
-MA <- 3
-
-# Country & countrycode
-countrycode <- countrycode(country, 
-                           origin = "country.name", 
-                           destination = "iso2c")
-
-# Google Trends: Load data
-data_gtrend <- gtrends(keyword = search_word, 
-                       time = timespan,
-                       geo = "NO")
-
-# Manipulate google trends data
-gtrend <- as_tibble(data_gtrend$interest_over_time) %>%
-  select(date, hits) %>% 
-  mutate(date = ymd(date)) %>% 
-  mutate_at("hits", ~ ifelse(. == "<1", 0, .)) %>%   
-  mutate_at("hits", ~ as.numeric(.)) %>% 
-  rename(searches = hits)
-
-google <- xts(gtrend$searches, gtrend$date)
-
-# Stocks and indicies -------------------
-
-# Yahoo does not provide historical data for indicies anymore. 
-# I could not find any other source. 
-# Webscraping via investing.com could be a possibility. But seems like python
-# is only option..
-# For now, we download data from oslobors.no to xls files. 
-#-------------------------------------------------------------------------------
-#            OBS DENNE DELEN MÅ AVVENTES MED PGA FLYTTING OSLO BØRS
-#            WORST CASE EFFEKTIVISER KODEN (!) OG BRUK EXCEL FILER
-#-------------------------------------------------------------------------------
-
-# OSEBX
-osebx_xl <- read_excel("OSEBX.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(osebx = Siste / last(Siste) * 100)
-osebx <- xts(osebx_xl$osebx, osebx_xl$date)
-
-# OBX
-obx_xl <- read_excel("OBX.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(obx = Siste / last(Siste) * 100)
-obx <- xts(obx_xl$obx, obx_xl$date)
-
-# OBOSX - Oil service index
-obosx <- read_excel("OBOSX.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(obosx = Siste / last(Siste) * 100)
-oilservice <- xts(obosx$obosx, obosx$date)
-
-# OBSFX - Seafood index
-obsfx <- read_excel("OBSFX.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(obsfx = Siste / last(Siste) * 100)
-seafood <- xts(obsfx$obsfx, obsfx$date)
-
-# OBSHX - Shipping index
-obshx <- read_excel("OBSHX.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(obshx = Siste / last(Siste) * 100)
-shipping <- xts(obshx$obshx, obshx$date)
-
-# OSEEX - Equity Certificate Index (egenkapitalbevis, sparebanker)
-oseex <- read_excel("OSEEX.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(oseex = Siste / last(Siste) * 100)
-equity_certificates <- xts(oseex$oseex, oseex$date)
-
-# OSEMX - Mid cap index
-osemx <- read_excel("OSEMX.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(osemx = Siste / last(Siste) * 100)
-mid_cap <- xts(osemx$osemx, osemx$date)
-
-# OSESX - Small cap index
-osesx <- read_excel("OSESX.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(osesx = Siste / last(Siste) * 100)
-small_cap <- xts(osesx$osesx, osesx$date)
-
-# OSE10GI - Energy
-ose10gi <- read_excel("OSE10GI.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(ose10gi = Siste / last(Siste) * 100)
-energy <- xts(ose10gi$ose10gi, ose10gi$date)
-
-# OSE15GI - Materials
-ose15gi <- read_excel("OSE15GI.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(ose15gi = Siste / last(Siste) * 100)
-materials <- xts(ose15gi$ose15gi, ose15gi$date)
-
-# OSE20GI - Industry
-ose20gi <- read_excel("OSE20GI.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(ose20gi = Siste / last(Siste) * 100)
-industry <- xts(ose20gi$ose20gi, ose20gi$date)
-
-# OSE25GI - Consumergoods Discretionary 
-ose25gi <- read_excel("OSE25GI.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(ose25gi = Siste / last(Siste) * 100)
-consumer_discretionary <- xts(ose25gi$ose25gi, ose25gi$date)
-
-# OSE30GI - Consumergoods Staples 
-ose30gi <- read_excel("OSE30GI.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(ose30gi = Siste / last(Siste) * 100)
-consumer_staples <- xts(ose30gi$ose30gi, ose30gi$date)
-
-# OSE35GI - Health care
-ose35gi <- read_excel("OSE35GI.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(ose35gi = Siste / last(Siste) * 100)
-health_care <- xts(ose35gi$ose35gi, ose35gi$date)
-
-# OSE40GI - Finance 
-ose40gi <- read_excel("OSE40GI.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(ose40gi = Siste / last(Siste) * 100)
-finance <- xts(ose40gi$ose40gi, ose40gi$date)
-
-# OSE45GI - IT
-ose45gi <- read_excel("OSE45GI.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(ose45gi = Siste / last(Siste) * 100)
-it <- xts(ose45gi$ose45gi, ose45gi$date)
-
-# OSE50GI - Communication 
-ose50gi <- read_excel("OSE50GI.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(ose50gi = Siste / last(Siste) * 100)
-communication <- xts(ose50gi$ose50gi, ose50gi$date)
-
-# OSE55GI - Utilities
-ose55gi <- read_excel("OSE55GI.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(ose55gi = Siste / last(Siste) * 100)
-utilities <- xts(ose55gi$ose55gi, ose55gi$date)
-
-# OSE60GI - Real Estate 
-ose60gi <- read_excel("OSE60GI.xlsx") %>% 
-  select(1, 2) %>% 
-  rename(date = 1) %>% 
-  mutate(ose60gi = Siste / last(Siste) * 100)
-real_estate <- xts(ose60gi$ose60gi, ose60gi$date)
-
-
-
-list.files(pattern = "xlsx")
-
-
-# Yahoo does provide historical data for individual stocks. 
-getSymbols("EQNR.OL", auto.assign = TRUE)
-EQNR <- Cl(EQNR.OL)
-EQNR <- EQNR["2020"]
-head(EQNR)
-
-
-
+corona <-gtrend_search("corona", "Norway")
+# korona <- gtrend_search("korona", "Norway")
+  
+# google <- xts(gtrend$searches, gtrend$date)
 
 
 # Currency ---------------------------------------------------------------------
@@ -237,21 +80,21 @@ getSymbols(currency_pair, auto.assign = TRUE)
 USD_NOK <- Cl(`NOK=X`)
 USD_NOK <- USD_NOK["2020"]
 colnames(USD_NOK) <- "USD_NOK_actual"
-USD_NOK <- as.xts(transform(USD_NOK, USD_NOK_scaled = 
-                              USD_NOK_actual / first(USD_NOK_actual) * 100))
+USD_NOK <- as.xts(transform(USD_NOK, USD_NOK_relative = 
+                              USD_NOK_actual / max(USD_NOK_actual) * 100))
 
 # Oil-price --------------------------------------------------------------------
 
-getSymbols("DCOILBRENTEU", src = "FRED", auto.assign = TRUE)
+getSymbols("DCOILBRENTEU", src = "FRED", auto.assign = TRUE) ["2020"]
 
-# Extract the close column and only from 2020-01-01
-brent_oil <- DCOILBRENTEU
-brent_oil <- brent_oil["2020"]
-brent_oil <- na.omit(brent_oil)
-colnames(brent_oil) <- "brent_oil_actual"
-brent_oil <- as.xts(
-  transform(brent_oil, brent_oil_scaled = 
-              brent_oil_actual / first(brent_oil_actual) * 100))
+# Extract the close column, only from 2020-01-01, changing column name
+brent_oil <- DCOILBRENTEU["2020"] %>% 
+  na.omit() %>% 
+  setNames(., "brent_oil_actual")
+
+# Creating column for relative values, for comparison with other values
+brent_oil <- as.xts(transform(brent_oil, brent_oil_relative = 
+                brent_oil_actual / max(brent_oil_actual) * 100))
 
 
 # ------------------------------------------------------------------------------
@@ -379,6 +222,7 @@ bankrupt <- function(industry) {
     
     # Filter values by year 2020
     filter(year == "2020") %>% 
+    
     # Reformat, normalize and keep only the values needed
     mutate(value = as.numeric(value),
            date = as.Date(as.yearmon(paste(year, month), "%Y %m"))) %>% 
@@ -397,19 +241,17 @@ bankruptcies_total <- bankrupt("Alle næringar") %>%
   mutate(normalized = amount / max(amount) * 100)
 
 
-# Merge all economic data into one data frame ----------------------------------
+# Merge all SSB data into one data frame ---------------------------------------
+# OBS: oljepris og valuta er xts. Kan ikke merges med SSB med mindre disse også 
+# gjøres om til xts. Må se mer på merging av SSB, virker ikke enda. 
 
 start_date <- as.Date("2020-01-01")
 end_date <- Sys.Date()
 dates <- seq(from = start_date, to = end_date, by = "days")
 
-eco_xts <- merge(covid_total, covid_daily, google, gdp, gdp_ex_oil, import,
-                 export, m1, m2, m3, kpi_ja, kpi_jae, aku, nav, bankruptcies,
-                 USD_NOK, brent_oil, osebx, obx, oilservice, seafood, shipping, 
-                 equity_certificates, mid_cap, small_cap, energy, materials,
-                 industry, consumer_discretionary, consumer_staples,
-                 health_care, finance, it, communication, utilities,
-                 real_estate)
+eco_xts <- merge(cases_covid, corona, gdp, gdp_ex_oil, import,
+                 export, m1, m2, m3, cpi_ja, cpi_jae, lfs, nav, bankruptcies, 
+                 bankruptcies_total)
 
 
 merged_xts <- merge(eco_xts, dates)
@@ -500,7 +342,164 @@ ggplot(merged_df, aes(x = dates)) +
 # Få til label på slutten, slik at det er tydelig at det er OSEBX.
 # Få det inn i en funksjon, sånn at man enkelt kan lage plots
 
+#-------------------------------------------------------------------------------
+#            OBS DENNE DELEN MÅ AVVENTES MED PGA FLYTTING OSLO BØRS
+#            WORST CASE EFFEKTIVISER KODEN (!) OG BRUK EXCEL FILER
+#-------------------------------------------------------------------------------
 
+# Stocks and indices -----------------------------------------------------------
+
+# Yahoo does not provide historical data for indicies anymore. 
+# I could not find any other source. 
+# Webscraping via investing.com could be a possibility. But seems like python
+# is only option..
+# For now, we download data from oslobors.no to xls files. 
+
+# OSEBX
+#osebx_xl <- read_excel("OSEBX.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(osebx = Siste / last(Siste) * 100)
+#osebx <- xts(osebx_xl$osebx, osebx_xl$date)
+
+# OBX
+#obx_xl <- read_excel("OBX.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(obx = Siste / last(Siste) * 100)
+#obx <- xts(obx_xl$obx, obx_xl$date)
+
+# OBOSX - Oil service index
+#obosx <- read_excel("OBOSX.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(obosx = Siste / last(Siste) * 100)
+#oilservice <- xts(obosx$obosx, obosx$date)
+
+# OBSFX - Seafood index
+#obsfx <- read_excel("OBSFX.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(obsfx = Siste / last(Siste) * 100)
+#seafood <- xts(obsfx$obsfx, obsfx$date)
+
+# OBSHX - Shipping index
+#obshx <- read_excel("OBSHX.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(obshx = Siste / last(Siste) * 100)
+#shipping <- xts(obshx$obshx, obshx$date)
+
+# OSEEX - Equity Certificate Index (egenkapitalbevis, sparebanker)
+#oseex <- read_excel("OSEEX.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(oseex = Siste / last(Siste) * 100)
+#equity_certificates <- xts(oseex$oseex, oseex$date)
+
+# OSEMX - Mid cap index
+#osemx <- read_excel("OSEMX.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(osemx = Siste / last(Siste) * 100)
+#mid_cap <- xts(osemx$osemx, osemx$date)
+
+# OSESX - Small cap index
+#osesx <- read_excel("OSESX.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(osesx = Siste / last(Siste) * 100)
+#small_cap <- xts(osesx$osesx, osesx$date)
+
+# OSE10GI - Energy
+#ose10gi <- read_excel("OSE10GI.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(ose10gi = Siste / last(Siste) * 100)
+#energy <- xts(ose10gi$ose10gi, ose10gi$date)
+
+# OSE15GI - Materials
+#ose15gi <- read_excel("OSE15GI.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(ose15gi = Siste / last(Siste) * 100)
+#materials <- xts(ose15gi$ose15gi, ose15gi$date)
+
+# OSE20GI - Industry
+#ose20gi <- read_excel("OSE20GI.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(ose20gi = Siste / last(Siste) * 100)
+#industry <- xts(ose20gi$ose20gi, ose20gi$date)
+
+# OSE25GI - Consumergoods Discretionary 
+#ose25gi <- read_excel("OSE25GI.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(ose25gi = Siste / last(Siste) * 100)
+#consumer_discretionary <- xts(ose25gi$ose25gi, ose25gi$date)
+
+# OSE30GI - Consumergoods Staples 
+#ose30gi <- read_excel("OSE30GI.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(ose30gi = Siste / last(Siste) * 100)
+#consumer_staples <- xts(ose30gi$ose30gi, ose30gi$date)
+
+# OSE35GI - Health care
+#ose35gi <- read_excel("OSE35GI.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(ose35gi = Siste / last(Siste) * 100)
+#health_care <- xts(ose35gi$ose35gi, ose35gi$date)
+
+# OSE40GI - Finance 
+#ose40gi <- read_excel("OSE40GI.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(ose40gi = Siste / last(Siste) * 100)
+#finance <- xts(ose40gi$ose40gi, ose40gi$date)
+
+# OSE45GI - IT
+#ose45gi <- read_excel("OSE45GI.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(ose45gi = Siste / last(Siste) * 100)
+#it <- xts(ose45gi$ose45gi, ose45gi$date)
+
+# OSE50GI - Communication 
+#ose50gi <- read_excel("OSE50GI.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(ose50gi = Siste / last(Siste) * 100)
+#communication <- xts(ose50gi$ose50gi, ose50gi$date)
+
+# OSE55GI - Utilities
+#ose55gi <- read_excel("OSE55GI.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(ose55gi = Siste / last(Siste) * 100)
+#utilities <- xts(ose55gi$ose55gi, ose55gi$date)
+
+# OSE60GI - Real Estate 
+#ose60gi <- read_excel("OSE60GI.xlsx") %>% 
+#  select(1, 2) %>% 
+#  rename(date = 1) %>% 
+#  mutate(ose60gi = Siste / last(Siste) * 100)
+#real_estate <- xts(ose60gi$ose60gi, ose60gi$date)
+
+
+
+#list.files(pattern = "xlsx")
+
+
+# Yahoo does provide historical data for individual stocks. 
+#getSymbols("EQNR.OL", auto.assign = TRUE)
+#EQNR <- Cl(EQNR.OL)
+#EQNR <- EQNR["2020"]
+#head(EQNR)
+
+#-------------------------------------------------------------------------------
 
 ## Forbedringer script: --------------
 ## Laste inn data fra oslobørs på en bedre måte. 
