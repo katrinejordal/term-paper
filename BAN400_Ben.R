@@ -1,7 +1,10 @@
-###
-## BAN400 - Financial & Economic data
-###
-# Libraries --------------------------------------------------------------------
+#===============================================================================
+## BAN400 - Visualization 
+#===============================================================================
+
+# ------------------------------------------------------------------------------
+# Loading libraries needed
+# ------------------------------------------------------------------------------
 library(foreign)
 library(ggplot2)
 library(dplyr)
@@ -19,10 +22,13 @@ library(prophet)
 library(StanHeaders)
 library(quantmod)
 library(readxl)
-library (PxWebApiData)
+library(PxWebApiData)
 
+# ------------------------------------------------------------------------------
+# Loading and plotting COVID-19 data 
+# ------------------------------------------------------------------------------
 
-# COVID-19 data ----------------------------------------------------------------
+# Loading COVID-19 data --------------------------------------------------------
 
 cases_covid <- covid19.data(case = "ts-confirmed") %>%
   filter(Country.Region == "Norway") %>%
@@ -37,13 +43,67 @@ cases_covid <- covid19.data(case = "ts-confirmed") %>%
            default = first(confirmed_cases)
     )
   )
- 
+
 #covid_total <- tibble(cases_covid[, c("confirmed_cases", "date")])
 #covid_daily <- tibble(cases_covid[, c("new_cases", "date")])
 
 
-# Google trends data -----------------------------------------------------------
-gtrend_search <- function(search_word, country, MA = 1) {
+# Plotting COVID-10 data -------------------------------------------------------
+
+# New daily cases 
+# OBS feil i rapportering 15, 16 og 17 nov - burde fikses (fordeles på 3 dager)
+daily_cases <-
+  ggplot(cases_covid, aes(x = date, y = new_cases)) +
+  geom_ma(color = "indianred4",
+          ma_fun = SMA,
+          n = 7,
+          size = 0.5,
+          linetype = 1) +
+  theme_minimal() +
+  labs(x = "Dates",
+       y = "Number of infected",
+       title = "New daily cases of COVID-19",
+       subtitle = "Norway, moving average = 7") +
+  scale_x_date(date_labels = "%B",
+               date_breaks = "1 month") +
+  scale_y_continuous(breaks = seq(0, max(cases_covid$new_cases), 200)) +
+  theme(plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(color = "gray40",
+                                     size = 10,
+                                     face = "italic"))
+# Show plot
+daily_cases
+
+
+# Total confirmed cases 
+total_cases <-
+ggplot(cases_covid, aes(x = date, y = confirmed_cases)) + 
+  geom_area(color = "lightsteelblue4",
+            fill = "lightsteelblue",
+            alpha = 0.4) +
+  theme_minimal() +
+  labs(x = "Dates", y = "Number of infected",
+       title ="Total confirmed cases of COVID-19",
+       subtitle = "Norway") + 
+  scale_x_date(date_labels = "%B", date_breaks = "1 month") +
+  scale_y_continuous(breaks = seq(0, max(cases_covid$confirmed_cases), 5000)) +
+  theme(plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(color = "gray40",
+                                     size = 10,
+                                     face = "italic"))
+# Show plot
+total_cases
+
+# Hvis vi vil kan vi normalisere daily og confirmed cases, og vise i samme plot
+
+
+# ------------------------------------------------------------------------------
+# Loading and plotting Google Trends data 
+# ------------------------------------------------------------------------------
+
+
+# Loading and plotting Google trends data ---------------------------------------------------
+load_gtrend <- function(search_word, country) {
  
   # Updating the date
   timespan <- paste("2020-01-01", Sys.Date())
@@ -57,6 +117,7 @@ gtrend_search <- function(search_word, country, MA = 1) {
   google_trends <- gtrends(keyword = search_word,
                            time = timespan,
                            geo = "NO") [[1]] %>%
+    tibble()
     select(date, hits) %>%
     mutate(date = ymd(date)) %>%
     mutate_at("hits", ~ ifelse(. == "<1", 0, .)) %>%
@@ -65,36 +126,50 @@ gtrend_search <- function(search_word, country, MA = 1) {
   
 }
 
-corona <-gtrend_search("corona", "Norway")
+gtrend_corona <-load_gtrend("corona", "Norway")
+
+ggplot(gtrend_corona, aes(x = date, y = searches)) + 
+  geom_line(color = "chartreuse4") + 
+  theme_minimal() +
+  labs(x = "Dates", y = "Relative number of searches",
+       title ="Total confirmed cases of COVID-19",
+       subtitle = "Norway") + 
+  scale_x_date(date_labels = "%B", date_breaks = "1 month") + 
+  scale_y_continuous(breaks = seq(0, 100, 10)) +
+  theme(plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(color = "gray40",
+                                     size = 10,
+                                     face = "italic"))
+
+
 # korona <- gtrend_search("korona", "Norway")
+total_cases <-
+  ggplot(cases_covid, aes(x = date, y = confirmed_cases)) + 
+  geom_area(color = "lightsteelblue4",
+            fill = "lightsteelblue",
+            alpha = 0.4) +
+  theme_minimal() +
+  labs(x = "Dates", y = "Number of infected",
+       title ="Total confirmed cases of COVID-19",
+       subtitle = "Norway") + 
+  scale_x_date(date_labels = "%B", date_breaks = "1 month") +
+  scale_y_continuous(breaks = seq(0, max(cases_covid$confirmed_cases), 5000)) +
+  theme(plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(color = "gray40",
+                                     size = 10,
+                                     face = "italic"))
   
 # google <- xts(gtrend$searches, gtrend$date)
 
 
-# Currency ---------------------------------------------------------------------
 
-currency_pair <- "NOK=X"
+# Plotting google searches vs covid cases --------------------------------------
 
-getSymbols(currency_pair, auto.assign = TRUE)
 
-USD_NOK <- Cl(`NOK=X`)
-USD_NOK <- USD_NOK["2020"]
-colnames(USD_NOK) <- "USD_NOK_actual"
-USD_NOK <- as.xts(transform(USD_NOK, USD_NOK_relative = 
-                              USD_NOK_actual / max(USD_NOK_actual) * 100))
-
-# Oil-price --------------------------------------------------------------------
-
-getSymbols("DCOILBRENTEU", src = "FRED", auto.assign = TRUE) ["2020"]
-
-# Extract the close column, only from 2020-01-01, changing column name
-brent_oil <- DCOILBRENTEU["2020"] %>% 
-  na.omit() %>% 
-  setNames(., "brent_oil_actual")
-
-# Creating column for relative values, for comparison with other values
-brent_oil <- as.xts(transform(brent_oil, brent_oil_relative = 
-                brent_oil_actual / max(brent_oil_actual) * 100))
+cases_gtrend <- inner_join(corona, cases_covid, by = "date") %>%
+  as_tibble() %>% 
+  mutate(infected_relative = round(new_cases/max(new_cases)*100)) %>% 
+  select(date, searches, infected_relative)
 
 
 # ------------------------------------------------------------------------------
@@ -240,13 +315,17 @@ bankruptcies <- bankrupt(T) %>%
   
 # Bankruptcies in total each month
 bankruptcies_total <- bankrupt("Alle næringar") %>% 
-  mutate(normalized = amount / max(amount) * 100)
+  mutate(normalized = amount / max(amount) * 100) %>% 
+  select(amount, date, normalized)
 
 
-# Merge all SSB data into one data frame ---------------------------------------
-# OBS: oljepris og valuta er xts. Kan ikke merges med SSB med mindre disse også 
-# gjøres om til xts. Må se mer på merging av SSB, virker ikke enda. 
 
+
+# ==============================================================================
+# Benjamin sin del med oljepris, valuta og oslo børs + merge og plot
+# ==============================================================================
+
+# Merging ----------------------------------------------------------------------
 start_date <- as.Date("2020-01-01")
 end_date <- Sys.Date()
 dates <- seq(from = start_date, to = end_date, by = "days")
@@ -343,6 +422,34 @@ ggplot(merged_df, aes(x = dates)) +
 
 # Få til label på slutten, slik at det er tydelig at det er OSEBX.
 # Få det inn i en funksjon, sånn at man enkelt kan lage plots
+
+
+# Currency ---------------------------------------------------------------------
+
+currency_pair <- "NOK=X"
+
+getSymbols(currency_pair, auto.assign = TRUE)
+
+USD_NOK <- Cl(`NOK=X`)
+USD_NOK <- USD_NOK["2020"]
+colnames(USD_NOK) <- "USD_NOK_actual"
+USD_NOK <- as.xts(transform(USD_NOK, USD_NOK_relative = 
+                              USD_NOK_actual / max(USD_NOK_actual) * 100))
+
+# Oil-price --------------------------------------------------------------------
+
+getSymbols("DCOILBRENTEU", src = "FRED", auto.assign = TRUE) ["2020"]
+
+# Extract the close column, only from 2020-01-01, changing column name
+brent_oil <- DCOILBRENTEU["2020"] %>% 
+  na.omit() %>% 
+  setNames(., "brent_oil_actual")
+
+# Creating column for relative values, for comparison with other values
+brent_oil <- as.xts(transform(brent_oil, brent_oil_relative = 
+                                brent_oil_actual / max(brent_oil_actual) * 100))
+
+
 
 #-------------------------------------------------------------------------------
 #            OBS DENNE DELEN MÅ AVVENTES MED PGA FLYTTING OSLO BØRS
