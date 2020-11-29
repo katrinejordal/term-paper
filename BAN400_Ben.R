@@ -28,7 +28,7 @@ library(PxWebApiData)
 # Loading and plotting COVID-19 data 
 # ------------------------------------------------------------------------------
 
-# Loading COVID-19 data --------------------------------------------------------
+# Loading COVID-19 data only ---------------------------------------------------
 
 cases_covid <- covid19.data(case = "ts-confirmed") %>%
   filter(Country.Region == "Norway") %>%
@@ -48,7 +48,7 @@ cases_covid <- covid19.data(case = "ts-confirmed") %>%
 #covid_daily <- tibble(cases_covid[, c("new_cases", "date")])
 
 
-# Plotting COVID-10 data -------------------------------------------------------
+# Plotting COVID-10 data only --------------------------------------------------
 
 # New daily cases 
 # OBS feil i rapportering 15, 16 og 17 nov - burde fikses (fordeles på 3 dager)
@@ -102,7 +102,7 @@ total_cases
 # ------------------------------------------------------------------------------
 
 
-# Creating function that loads and plots Google Trends -------------------------
+# Creating function that loads and plots Google Trends only --------------------
 google_trend <- function(search_word, country) {
  
   # Updating the date
@@ -114,7 +114,7 @@ google_trend <- function(search_word, country) {
                              destination = "iso2c")
   
   # Loading google trend data
-  g_trends <- gtrends(keyword = search_word,
+  trends <- gtrends(keyword = search_word,
                            time = timespan,
                            geo = "NO") [[1]] %>%
     tibble() %>% 
@@ -125,7 +125,7 @@ google_trend <- function(search_word, country) {
     rename(searches = hits)
   
   # Creating plot
-  ggplot(g_trends, aes(x = date, y = searches)) + 
+  ggplot(trends, aes(x = date, y = searches)) + 
     geom_line(color = "chartreuse4") + 
     theme_minimal() +
     labs(x = NULL, y = "Relative number of searches",
@@ -151,14 +151,59 @@ gtrend_munnbind<-google_trend("munnbind", "Norway")
 gtrend_munnbind
 
 
+# ------------------------------------------------------------------------------
+# Loading and plotting comparison of Google Trends data and COVID-19 data
+# ------------------------------------------------------------------------------
 
-# Plotting google searches vs covid cases --------------------------------------
+google_cases<- function(search_word, country, MA = 3) {
+  
+  # Updating the date
+  timespan <- paste("2020-01-01", Sys.Date())
+  
+  # Changing country name to country code
+  countrycode <- countrycode(country, 
+                             origin = "country.name", 
+                             destination = "iso2c")
+  
+  # Loading google trend data
+  g_trends <- gtrends(keyword = search_word,
+                      time = timespan,
+                      geo = countrycode) [[1]] %>%
+    tibble() %>% 
+    select(date, hits) %>%
+    mutate(date = ymd(date)) %>%
+    mutate_at("hits", ~ ifelse(. == "<1", 0, .)) %>%
+    mutate_at("hits", ~ as.numeric(.)) %>%
+    rename(searches = hits)
+  
+  cases_gtrend <- inner_join(g_trends, cases_covid, by = "date") %>%
+    tibble() %>% 
+    mutate(infected_relative = round(new_cases/max(new_cases)*100)) %>% 
+    select(date, searches, infected_relative)
+  
+  # Creating plot
+  ggplot(cases_gtrend, aes(x = date)) + 
+    geom_ma(aes(y = searches, color = "searches"), 
+            ma_fun = SMA, n = MA, linetype = 1, size = 0.5) + 
+    geom_ma(aes(y = infected_relative, color = "infected"), 
+            ma_fun = SMA, n = MA, linetype = 1, size = 0.5) + 
+    theme_minimal() +
+    scale_color_manual(values = c("indianred4","chartreuse4")) +
+    scale_x_date(date_labels = "%B", date_breaks = "1 month") + 
+    scale_y_continuous(breaks = seq(0, 100, 10)) +
+    labs(x = NULL, y = "Relative number of searches & infected",
+         title = paste("Google searches for '", search_word,
+                       "' & new corona cases in", country),
+         subtitle = "Numbers are relative, with 100 being max") + 
+    theme(plot.title = element_text(face = "bold"),
+          plot.subtitle = element_text(color = "gray40",
+                                       size = 10,
+                                       face = "italic"))
 
+}
 
-cases_gtrend <- inner_join(corona, cases_covid, by = "date") %>%
-  as_tibble() %>% 
-  mutate(infected_relative = round(new_cases/max(new_cases)*100)) %>% 
-  select(date, searches, infected_relative)
+corona_cases <-google_cases("corona", "Norway")
+corona_cases
 
 
 # ------------------------------------------------------------------------------
