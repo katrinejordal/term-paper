@@ -102,8 +102,8 @@ total_cases
 # ------------------------------------------------------------------------------
 
 
-# Loading and plotting Google trends data ---------------------------------------------------
-load_gtrend <- function(search_word, country) {
+# Creating function that loads and plots Google Trends -------------------------
+google_trend <- function(search_word, country) {
  
   # Updating the date
   timespan <- paste("2020-01-01", Sys.Date())
@@ -114,52 +114,41 @@ load_gtrend <- function(search_word, country) {
                              destination = "iso2c")
   
   # Loading google trend data
-  google_trends <- gtrends(keyword = search_word,
+  g_trends <- gtrends(keyword = search_word,
                            time = timespan,
                            geo = "NO") [[1]] %>%
-    tibble()
+    tibble() %>% 
     select(date, hits) %>%
     mutate(date = ymd(date)) %>%
     mutate_at("hits", ~ ifelse(. == "<1", 0, .)) %>%
     mutate_at("hits", ~ as.numeric(.)) %>%
     rename(searches = hits)
   
+  # Creating plot
+  ggplot(g_trends, aes(x = date, y = searches)) + 
+    geom_line(color = "chartreuse4") + 
+    theme_minimal() +
+    labs(x = NULL, y = "Relative number of searches",
+         title = paste("Google searches for '", search_word,
+                      "' in", country),
+         subtitle = "Numbers are relative, with 100 being max") + 
+    scale_x_date(date_labels = "%B", date_breaks = "1 month") + 
+    scale_y_continuous(breaks = seq(0, 100, 10)) +
+    theme(plot.title = element_text(face = "bold"),
+          plot.subtitle = element_text(color = "gray40",
+                                       size = 10,
+                                       face = "italic"))
+  
 }
 
-gtrend_corona <-load_gtrend("corona", "Norway")
+gtrend_corona <-google_trend("corona", "Norway")
+gtrend_corona
 
-ggplot(gtrend_corona, aes(x = date, y = searches)) + 
-  geom_line(color = "chartreuse4") + 
-  theme_minimal() +
-  labs(x = "Dates", y = "Relative number of searches",
-       title ="Total confirmed cases of COVID-19",
-       subtitle = "Norway") + 
-  scale_x_date(date_labels = "%B", date_breaks = "1 month") + 
-  scale_y_continuous(breaks = seq(0, 100, 10)) +
-  theme(plot.title = element_text(face = "bold"),
-        plot.subtitle = element_text(color = "gray40",
-                                     size = 10,
-                                     face = "italic"))
+gtrend_korona <-google_trend("korona", "Norway")
+gtrend_korona
 
-
-# korona <- gtrend_search("korona", "Norway")
-total_cases <-
-  ggplot(cases_covid, aes(x = date, y = confirmed_cases)) + 
-  geom_area(color = "lightsteelblue4",
-            fill = "lightsteelblue",
-            alpha = 0.4) +
-  theme_minimal() +
-  labs(x = "Dates", y = "Number of infected",
-       title ="Total confirmed cases of COVID-19",
-       subtitle = "Norway") + 
-  scale_x_date(date_labels = "%B", date_breaks = "1 month") +
-  scale_y_continuous(breaks = seq(0, max(cases_covid$confirmed_cases), 5000)) +
-  theme(plot.title = element_text(face = "bold"),
-        plot.subtitle = element_text(color = "gray40",
-                                     size = 10,
-                                     face = "italic"))
-  
-# google <- xts(gtrend$searches, gtrend$date)
+gtrend_munnbind<-google_trend("munnbind", "Norway")
+gtrend_munnbind
 
 
 
@@ -607,6 +596,8 @@ brent_oil <- as.xts(transform(brent_oil, brent_oil_relative =
 #EQNR <- Cl(EQNR.OL)
 #EQNR <- EQNR["2020"]
 #head(EQNR)
+
+# google <- xts(gtrend$searches, gtrend$date)
 
 #-------------------------------------------------------------------------------
 
