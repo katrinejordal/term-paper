@@ -60,10 +60,10 @@ daily_cases <-
           size = 0.5,
           linetype = 1) +
   theme_minimal() +
-  labs(x = "Dates",
+  labs(x = NULL,
        y = "Number of infected",
-       title = "New daily cases of COVID-19",
-       subtitle = "Norway, moving average = 7") +
+       title = "New daily cases of COVID-19 in Norway",
+       subtitle = "Data retrieved from CSSE at JHU, moving average = 7") +
   scale_x_date(date_labels = "%B",
                date_breaks = "1 month") +
   scale_y_continuous(breaks = seq(0, max(cases_covid$new_cases), 200)) +
@@ -82,9 +82,9 @@ ggplot(cases_covid, aes(x = date, y = confirmed_cases)) +
             fill = "lightsteelblue",
             alpha = 0.4) +
   theme_minimal() +
-  labs(x = "Dates", y = "Number of infected",
-       title ="Total confirmed cases of COVID-19",
-       subtitle = "Norway") + 
+  labs(x = NULL, y = "Number of infected",
+       title ="Total confirmed cases of COVID-19 in Norway",
+       subtitle = "Data retrieved from CSSE at JHU") + 
   scale_x_date(date_labels = "%B", date_breaks = "1 month") +
   scale_y_continuous(breaks = seq(0, max(cases_covid$confirmed_cases), 5000)) +
   theme(plot.title = element_text(face = "bold"),
@@ -100,7 +100,6 @@ total_cases
 # ------------------------------------------------------------------------------
 # Loading and plotting Google Trends data 
 # ------------------------------------------------------------------------------
-
 
 # Creating function that loads and plots Google Trends only --------------------
 google_trend <- function(search_word, country) {
@@ -195,7 +194,8 @@ google_cases<- function(search_word, country, MA = 3) {
          title = paste("Google searches for '", search_word,
                        "' & new corona cases in", country),
          subtitle = "Numbers are relative, with 100 being max") + 
-    theme(plot.title = element_text(face = "bold"),
+    theme(legend.title = element_blank(),
+          plot.title = element_text(face = "bold"),
           plot.subtitle = element_text(color = "gray40",
                                        size = 10,
                                        face = "italic"))
@@ -205,14 +205,17 @@ google_cases<- function(search_word, country, MA = 3) {
 corona_cases <-google_cases("corona", "Norway")
 corona_cases
 
+munnbind_cases <-google_cases("munnbind", "Norway")
+munnbind_cases
+
 
 # ------------------------------------------------------------------------------
 # Loading economic data from SSB using SSBs own package "PxWebApiData"
 # ------------------------------------------------------------------------------
 
 # Different macroeconomic values are presented in different data sets at SSB,
-# with variable names differing somewhat in each data set. We therefore created
-# one function for each data set we wanted to load data from.
+# with different variable names and number of variables in each data set. We 
+# therefore created one function for each data set we wanted to load data from.
 
 # Gross Domestic Product, import and export ------------------------------------
 
@@ -353,6 +356,118 @@ bankruptcies_total <- bankrupt("Alle næringar") %>%
   select(amount, date, normalized)
 
 
+# ------------------------------------------------------------------------------
+# Plotting SSB data
+# ------------------------------------------------------------------------------
+
+# Creating a function that plots each macroeconomic value in a plot of their own 
+
+ssb_plot <- function(name, ssb_value, r_color) {
+  ggplot(ssb_value, aes(x = date, y = amount)) +
+    geom_line(color = r_color,
+              size = 0.5,
+              linetype = 1) +
+    theme_minimal() +
+    labs(x = NULL,
+         y = paste(name),
+         title = 
+           paste("Overwiev of", name, "in Norway during the COVID-19 pandemic"),
+         subtitle = "Data retrieved from SSB") +
+    scale_x_date(date_labels = "%B",
+                 date_breaks = "1 month") + 
+    theme(plot.title = element_text(face = "bold"),
+          plot.subtitle = element_text(color = "gray40",
+                                       size = 10,
+                                       face = "italic"))
+}
+
+bankrupt_tot_plot <- ssb_plot("bankruptcies", bankruptcies_total, "salmon")
+bankrupt_tot_plot
+
+cpija_plot <- ssb_plot("CPI JA", cpi_ja, "paleturquoise")
+cpija_plot
+
+cpijae_plot <- ssb_plot("CPI JAE", cpi_jae, "seagreen3")
+cpijae_plot
+
+export_plot <- ssb_plot("export", export, "palegoldenrod")
+export_plot
+
+gdp_plot <- ssb_plot("GDP", gdp, "palegreen3")
+gdp_plot
+
+gdp_exoil_plot <- ssb_plot("GDP ex. oil", gdp_ex_oil, "palevioletred3")
+gdp_exoil_plot
+
+import_plot <- ssb_plot("import", import, "peachpuff3")
+import_plot
+
+lfs_plot <- ssb_plot("LFS unemplyment", lfs, "skyblue3")
+lfs_plot
+
+nav_plot <- ssb_plot("NAV unemplyment", nav, "darkgoldenrod2")
+nav_plot
+
+
+# Plotting the 3 money supply values in a single plot --------------------------
+
+ms_plot <-
+  ggplot(m1, aes(x = date)) +
+  geom_line(aes(y = amount, color = "m1"), 
+              size = 0.5,
+              linetype = 1) +
+  geom_line(aes(y = amount, color = "m2"), 
+            data = m2,
+            size = 0.5,
+            linetype = 1) +
+  geom_line(aes(y = amount, color = "m3"), 
+            data = m3,
+            size = 0.5,
+            linetype = 1) +
+  theme_minimal() +
+  scale_color_manual(values = c("darkgoldenrod2","skyblue3", "peachpuff3")) +
+    labs(x = NULL,
+         y = "Money supply",
+         title = paste("Money supply in Norway during the COVID-19 pandemic"),
+         subtitle = "Data retrieved from SSB") +
+  scale_x_date(date_labels = "%B",
+                 date_breaks = "1 month") + 
+  theme(legend.title = element_blank(),
+        plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(color = "gray40",
+                                       size = 10,
+                                       face = "italic"))
+ms_plot
+
+
+# Plotting the NAV and LFS unemployment in a single plot -----------------------
+
+unemployment_plot <-
+  ggplot(lfs, aes(x = date)) +
+  geom_line(aes(y = amount, color = "lfs"), 
+            size = 0.5,
+            linetype = 1) +
+  geom_line(aes(y = amount, color = "nav"), 
+            data = nav,
+            size = 0.5,
+            linetype = 1) +
+  theme_minimal() +
+  scale_color_manual(values = c("seagreen3","salmon2")) +
+  labs(x = NULL,
+       y = "Unemployment",
+       title = paste("Unemployment in Norway during the COVID-19 pandemic"),
+       subtitle = "Data retrieved from SSB") +
+  scale_x_date(date_labels = "%B",
+               date_breaks = "1 month") + 
+  theme(legend.title = element_blank(),
+        plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(color = "gray40",
+                                     size = 10,
+                                     face = "italic"))
+unemployment_plot
+
+
+# Merging all SSB data into one DF and gather in one plot ----------------------
 
 
 # ==============================================================================
