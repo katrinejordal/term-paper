@@ -202,7 +202,7 @@ munnbind_cases
 
 
 # ------------------------------------------------------------------------------
-# Part 4: Loading and plotting data on bankruptcies from SSB 
+# Loading and plotting data on bankruptcies from SSB 
 # ------------------------------------------------------------------------------
 
 # This part only focuses on creating histograms for SSB-data for bankruptcies 
