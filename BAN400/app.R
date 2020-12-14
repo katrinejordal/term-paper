@@ -25,8 +25,18 @@ library(readxl)
 library(PxWebApiData)
 library(shiny)
 
+# ------------------------------------------------------------------------------
+# Loading economic data from SSB using SSBs own package "PxWebApiData"
+# ------------------------------------------------------------------------------
 
-# Loading data -----------------------------------------------------------------
+# Different macroeconomic values are presented in different data sets at SSB,
+# with different variable names and number of variables in each data set. We 
+# therefore created one function for each data set we wanted to load data from.
+
+# For further explanation of the functions, se the readme.md file
+
+
+# Gross Domestic Product, import and export ------------------------------------
 
 ssb_data <- function(macro_size) {
     
@@ -42,8 +52,51 @@ import <- ssb_data("imp.nrtot")
 export <- ssb_data("eks.nrtot")
 
 
-# Cleaning data ----------------------------------------------------------------
+# Consumer Price Index ---------------------------------------------------------
 
+ssb_cpi <- function(macro_size) {
+    ApiData(urlToData = 05327,
+            Konsumgrp = macro_size,
+            ContentsCode = "KPIJustIndMnd",
+            Tid = T) [[1]] 
+}
+
+cpi_ja <- ssb_cpi("JA_TOTAL")    # Adjusted for tax changes
+cpi_jae <- ssb_cpi("JAE_TOTAL")  # Adjusted for tax changes, ex. energy products
+
+
+# Unemployment, both LFS (AKU) and NAV -----------------------------------------
+
+ssb_wf <- function(macro_size) {
+    
+    ApiData(urlToData = 08931,
+            Kjonn = "0",
+            Alder = "15-74",
+            ContentsCode = macro_size,
+            Tid = T) [[1]] 
+}
+
+lfs <- ssb_wf("Arbeidslause2")  # Labor Force Survey (AKU)
+nav <- ssb_wf("Arbeidslause6")  # Registered unemployment at NAV
+
+
+# Money supply -----------------------------------------------------------------
+
+ssb_ms <- function(macro_size) {
+    
+    ApiData(urlToData = 10945,
+            ContentsCode = macro_size,
+            Tid = T) [[1]] 
+}
+
+m1 <- ssb_ms("PengmengdBehM1")  # Money Supply 1
+m2 <- ssb_ms("PengmengdBehM2")  # Money Supply 2
+m3 <- ssb_ms("PengmengdBehM3")  # Money Supply 3
+
+
+# Data manipulation ------------------------------------------------------------
+
+#Creating a function that can be used for wrangling (almost) all SSB data  
 cleanup <- function(data_frame) {
     
     # Separate SSB date format into month and year
@@ -62,52 +115,122 @@ cleanup <- function(data_frame) {
                   normalized = amount / max(amount) * 100)
 }
 
+
+# Applying the function to the data frames
 gdp <- cleanup(gdp)
 gdp_ex_oil <- cleanup(gdp_ex_oil)
 import <- cleanup(import)
 export <- cleanup(export)
+cpi_ja <- cleanup(cpi_ja)
+cpi_jae <- cleanup(cpi_jae)
+lfs <- cleanup(lfs)
+nav <- cleanup(nav)
+m1 <- cleanup(m1)
+m2 <- cleanup(m2)
+m3 <- cleanup(m3)
 
 
-# Merging data -----------------------------------------------------------------
+# Creating an ID-column called "variable" (needed for Shiny app) 
+gdp$variable <- c("gdp")
+gdp_ex_oil$variable <- c("gdp_ex_oil")
+import$variable <- c("import")
+export$variable <- c("export")
+cpi_ja$variable <- c("cpi_ja")
+cpi_jae$variable <- c("cpi_jae")
+lfs$variable <- c("lfs")
+nav$variable <- c("nav")
+m1$variable <- c("m1")
+m2$variable <- c("m2")
+m3$variable <- c("m3")
 
-merged_ssb <- 
-    merge(export, gdp, by = "date") %>% 
-    transmute(export_amount = amount.x,
-           export_normalized = normalized.x,
-           gdp_amount = amount.y,
-           gdp_normalized = normalized.y,
-           date = date
-           )
+# Bankruptcies -----------------------------------------------------------------
 
-# Creating list of available macroeconomic values ------------------------------
-variable_list <- list(
-    "GDP" = "GDP",
-    "GDP excluding oil" = "GDP ex oil",
-    "Import" = "Import",
-    "Export" = "Export")
-#    "CPI JA" = "CPI JA",
-#    "CPI JAE" = "CPI JAE",
-#    "LFS unemployment" = "lfs",
-#    "NAV unemployment" = "nav",
-#    "Money Supply 1" = "m1",
-#    "Money Supply 2" = "m2",
-#    "Money Supply 3" = "m3",
-#    "Total bankruptcies" = "bankruptcies total")
+# Bankruptcies data has a slightly different format at SSB, thus it needs to be 
+# manipulated in a slightly different way. Also want to extract bankruptcies in
+# total as well as per industry. 
 
+bankrupt <- function(industry) {
+    
+    ApiData(urlToData = 08551,
+            Region = "Heile landet", 
+            NACE2007 = industry, 
+            ContentsCode = "Konkurser",
+            Tid = T)[[1]] %>% 
+        
+        separate(col = "måned",
+                 into = c("year", "month"),
+                 sep = "M") %>%
+        
+        filter(year == "2020") %>% 
+        
+        # Reformat, normalize and keep only the values needed
+        mutate(value = as.numeric(value),
+               date = as.Date(as.yearmon(paste(year, month), "%Y %m"))) %>% 
+        select(industry = "næring (SN2007)",
+               amount = "value",
+               "date")
+}
+
+# Bankruptcies per industry each month
+bankruptcies <- bankrupt(T) %>% 
+    filter(industry != "Alle næringar") %>% 
+    mutate(normalized = amount / max(amount) * 100)
+
+# Bankruptcies in total each month
+bankruptcies_total <- bankrupt("Alle næringar") %>% 
+    mutate(normalized = amount / max(amount) * 100,
+           variable = c("bankruptcies")) %>% 
+    select(amount, date, normalized, variable)
+
+
+# Merging all data frames into a single one, removing NA from LFS
+economy <- rbind(gdp, gdp_ex_oil, export, import, cpi_ja, cpi_jae, lfs, nav, m1,
+                 m2, m3, bankruptcies_total) %>%
+    na.omit()
+
+# Creating a dynamic value for today's date
 today <- as.character(Sys.Date())
 
 
-# Define UI for application that draws a histogram
+# Creating list of available macroeconomic values 
+variable_list <- list(
+    "GDP" = "gdp",
+    "GDP excluding oil" = "gdp_ex_oil",
+    "Import" = "import",
+    "Export" = "export",
+    "Consumer Price Index JA" = "cpi_ja",
+    "Consumer Price Index JAE" = "cpi_jae",
+    "LFS unemployment" = "lfs",
+    "NAV unemployment" = "nav",
+    "Money Supply 1" = "m1",
+    "Money Supply 2" = "m2",
+    "Money Supply 3" = "m3",
+    "Total bankruptcies" = "bankruptcies total")
+
+
+# Define User Interface for Shiny App ------------------------------------------
 ui <- fluidPage(
 
     # Application title
     titlePanel("The effects of the corona pandemic on the Norwegian economy"),
+    
+    br(), br(),  # Adds space
 
     # Sidebar with a slider input for number of bins 
     sidebarLayout(
         sidebarPanel(
+            h3("Select variables to be displayed", align = "center"), 
+            br(),
+            p("Select the macroeconomic value(s) and time span you are \n
+              interested in from the list below. Selected values will appear \n
+              in the plot to the left, displaying an overview of its \n
+              development during the corona pandemic. To deselct a value, \n
+              simply press the 'delete' tab on your keyboard. All values are \n 
+              relative, so that the highest value of a macroeconomic variable \n
+              equals 100."),
+            br(),
             selectInput(inputId = "variable", 
-                        label = strong("Select a macroeconomic value"), 
+                        label = strong("Select a macroeconomic variable"), 
                         choices = variable_list, 
                         selected = "GDP", 
                         multiple = TRUE),
@@ -122,40 +245,45 @@ ui <- fluidPage(
 
         # Show a plot of the generated distribution
         mainPanel(
-           plotOutput("")
+            plotOutput("economy_plot")
         )
     )
 )
 
-# Define server logic required to draw a histogram
+
+# Define server logic for Shiny App --------------------------------------------
 server <- function(input, output) {
     
-    selected_trends <- reactive({
+    # Subset data
+    selected_data <- reactive({
         req(input$date)
         validate(need(!is.na(input$date[1]) & !is.na(input$date[2]), 
                       "Error: Please provide both a start and an end date."))
         validate(need(input$date[1] < input$date[2], 
                       "Error: Start date should be earlier than end date."))
-        
-    })
+        filter(economy, economy$variable %in% input$variable) %>% 
+            filter(date >= input$date[1] & date <= input$date[2])
+        })
+
     
-    output$plot1 <- renderPlot({
-        
-        ggplot(data_temp(), aes(x=Date, y=diff, color=Country)) +
+    output$economy_plot <- renderPlot({
+        ggplot(selected_data(), aes(x = date, y = normalized, color = variable)) +
             geom_line() +
-            xlab("Date") +
-            ylab("Cases per Day") +
-            ggtitle("Confirmed Cases per Day") +
-            theme(
-                legend.position="right",
-                axis.title = element_text(size=16),
-                axis.text = element_text(size=16),
-                plot.title = element_text(size=20),
-                legend.title = element_text(size=16),
-                legend.text = element_text(size=18)
-            )
-        
+            theme_minimal() +
+            labs(x = NULL,
+                 y = "Relative values",
+                 title = paste("Overview of macroeconomic variables in Norway during the COVID-19 pandemic"),
+                 subtitle = "Data retrieved from SSB, normalized with 100 being max") +
+            scale_x_date(date_labels = "%B",
+                         date_breaks = "1 month") + 
+            scale_y_continuous(limits = c(70,100), breaks = seq(70, 100, by = 5)) +
+            theme(legend.title = element_blank(),
+                  plot.title = element_text(face = "bold"),
+                  plot.subtitle = element_text(color = "gray40",
+                                               size = 10,
+                                               face = "italic"))
     })
+
 
     
 }

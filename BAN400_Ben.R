@@ -48,7 +48,7 @@ cases_covid <- covid19.data(case = "ts-confirmed") %>%
 #covid_daily <- tibble(cases_covid[, c("new_cases", "date")])
 
 
-# Plotting COVID-10 data only --------------------------------------------------
+# Plotting COVID-19 data only --------------------------------------------------
 
 # New daily cases 
 # OBS feil i rapportering 15, 16 og 17 nov - burde fikses (fordeles på 3 dager)
@@ -465,6 +465,30 @@ unemployment_plot <-
                                      size = 10,
                                      face = "italic"))
 unemployment_plot
+
+
+# Plotting GDP, import and export (relative values) in a single plot -----------
+
+economy_plot <-
+  ggplot(export, aes(x = date)) +
+  geom_line(aes(y = normalized, color = "Export"), size = 0.5, linetype = 1) +
+  geom_line(aes(y = normalized, color = "Import"), data = import, size = 0.5, linetype = 1) +
+  geom_line(aes(y = normalized, color = "GDP"), data = gdp, size = 0.5, linetype = 1) +
+  geom_line(aes(y = normalized, color = "GDP ex. oil"), data = gdp_ex_oil, size = 0.5, linetype = 1) +
+  theme_minimal() +
+  labs(x = NULL,
+       y = "Relative values",
+       title = paste("Overview of macroeconomic values in Norway during the COVID-19 pandemic"),
+       subtitle = "Data retrieved from SSB, normalized with 100 being max") +
+  scale_x_date(date_labels = "%B",
+               date_breaks = "1 month") + 
+  scale_y_continuous(limits = c(70,100), breaks = seq(70, 100, by = 5)) +
+  theme(legend.title = element_blank(),
+        plot.title = element_text(face = "bold"),
+        plot.subtitle = element_text(color = "gray40",
+                                     size = 10,
+                                     face = "italic"))
+economy_plot
 
 
 # Merging all SSB data into one DF and gather in one plot ----------------------
