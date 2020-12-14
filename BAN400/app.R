@@ -1,10 +1,8 @@
 #===============================================================================
-#                              BAN400 - TERM PAPER                             #
+#                   BAN400 - TERM PAPER PART TWO: SHINY APP                    #
 #===============================================================================
 
-# ------------------------------------------------------------------------------
 # Loading libraries needed
-# ------------------------------------------------------------------------------
 library(foreign)
 library(ggplot2)
 library(dplyr)
@@ -33,7 +31,7 @@ library(shiny)
 # with different variable names and number of variables in each data set. We 
 # therefore created one function for each data set we wanted to load data from.
 
-# For further explanation of the functions, se the readme.md file
+# For further explanation of the functions, see the readme.md file
 
 
 # Gross Domestic Product, import and export ------------------------------------
@@ -96,7 +94,7 @@ m3 <- ssb_ms("PengmengdBehM3")  # Money Supply 3
 
 # Data manipulation ------------------------------------------------------------
 
-#Creating a function that can be used for wrangling (almost) all SSB data  
+# Creating a function that can be used for wrangling all SSB data  
 cleanup <- function(data_frame) {
     
     # Separate SSB date format into month and year
@@ -143,12 +141,14 @@ m1$variable <- c("m1")
 m2$variable <- c("m2")
 m3$variable <- c("m3")
 
+
 # Bankruptcies -----------------------------------------------------------------
 
 # Bankruptcies data has a slightly different format at SSB, thus it needs to be 
-# manipulated in a slightly different way. Also want to extract bankruptcies in
-# total as well as per industry. 
+# manipulated in a slightly different way. Also want to extract bankruptcies per 
+# industry, as well as total number of bankruptcies.
 
+# Function that loads and wrangles bankruptcy data
 bankrupt <- function(industry) {
     
     ApiData(urlToData = 08551,
@@ -163,7 +163,7 @@ bankrupt <- function(industry) {
         
         filter(year == "2020") %>% 
         
-        # Reformat, normalize and keep only the values needed
+        # Reformat and keep only the values needed
         mutate(value = as.numeric(value),
                date = as.Date(as.yearmon(paste(year, month), "%Y %m"))) %>% 
         select(industry = "næring (SN2007)",
@@ -171,22 +171,23 @@ bankrupt <- function(industry) {
                "date")
 }
 
-# Bankruptcies per industry each month
-bankruptcies <- bankrupt(T) %>% 
-    filter(industry != "Alle næringar") %>% 
-    mutate(normalized = amount / max(amount) * 100)
-
-# Bankruptcies in total each month
+# Bankruptcies in total each month, including relative values
 bankruptcies_total <- bankrupt("Alle næringar") %>% 
     mutate(normalized = amount / max(amount) * 100,
            variable = c("bankruptcies")) %>% 
     select(amount, date, normalized, variable)
+
+# Bankruptcies per industry each month, including relative values
+bankruptcies <- bankrupt(T) %>% 
+    filter(industry != "Alle næringar") %>% 
+    mutate(normalized = amount / max(amount) * 100)
 
 
 # Merging all data frames into a single one, removing NA from LFS
 economy <- rbind(gdp, gdp_ex_oil, export, import, cpi_ja, cpi_jae, lfs, nav, m1,
                  m2, m3, bankruptcies_total) %>%
     na.omit()
+
 
 # Creating a dynamic value for today's date
 today <- as.character(Sys.Date())
@@ -210,18 +211,19 @@ variable_list <- list(
 
 # Define User Interface for Shiny App ------------------------------------------
 ui <- fluidPage(
-
+    
     # Application title
     titlePanel("The effects of the corona pandemic on the Norwegian economy"),
     
     br(), br(),  # Adds space
-
-    # Sidebar with a slider input for number of bins 
+    
     sidebarLayout(
+        
+        # First sidebar panel
         sidebarPanel(
-            h3("Select variables to be displayed", align = "center"), 
+            h3("Macroeconomic changes", align = "center"), 
             br(),
-            p("Select the macroeconomic value(s) and time span you are \n
+            p("Select the macroeconomic variable(s) and time span you are \n
               interested in from the list below. Selected values will appear \n
               in the plot to the left, displaying an overview of its \n
               development during the corona pandemic. To deselct a value, \n
@@ -229,10 +231,11 @@ ui <- fluidPage(
               relative, so that the highest value of a macroeconomic variable \n
               equals 100."),
             br(),
+            # Select macroeconomic variables input
             selectInput(inputId = "variable", 
                         label = strong("Select a macroeconomic variable"), 
                         choices = variable_list, 
-                        selected = "GDP", 
+                        selected = "gdp", 
                         multiple = TRUE),
             
             # Select date range to be plotted
@@ -240,12 +243,36 @@ ui <- fluidPage(
                            label = strong("Select a date range"), 
                            start = "2020-01-01", end = today,
                            min = "2020-01-01", max = today),
-            
-        ),
+        
+        br(), br(),
 
-        # Show a plot of the generated distribution
+            h3("Bankruptcies per industry", align = "center"), 
+            br(),
+            p("Select industries and time span you are interested in from the \n
+              list below. Selected values will appear in the plot to the left,\n
+              displaying an overview of its development during the corona \n
+              pandemic. To deselct a value, simply press the 'delete' tab on \n
+              your keyboard."),
+            br(),
+            # Select industries input
+            selectInput(inputId = "industry",
+                        label = strong("Select an industry"),
+                        choices = unique(bankruptcies$industry),
+                        selected = "Jordbruk, skogbruk og fiske",
+                        multiple = TRUE),
+            
+            # Select date range to be plotted
+            dateRangeInput(inputId = "date", 
+                           label = strong("Select a date range"), 
+                           start = "2020-01-01", end = today,
+                           min = "2020-01-01", max = today),
+        ),
+        
+        # Show plot in main paneø
         mainPanel(
-            plotOutput("economy_plot")
+            plotOutput("economy_plot"),
+            br(),br(),
+            plotOutput("bank_plot")
         )
     )
 )
@@ -263,9 +290,9 @@ server <- function(input, output) {
                       "Error: Start date should be earlier than end date."))
         filter(economy, economy$variable %in% input$variable) %>% 
             filter(date >= input$date[1] & date <= input$date[2])
-        })
-
+    })
     
+    # Create plot
     output$economy_plot <- renderPlot({
         ggplot(selected_data(), aes(x = date, y = normalized, color = variable)) +
             geom_line() +
@@ -276,15 +303,45 @@ server <- function(input, output) {
                  subtitle = "Data retrieved from SSB, normalized with 100 being max") +
             scale_x_date(date_labels = "%B",
                          date_breaks = "1 month") + 
-            scale_y_continuous(limits = c(70,100), breaks = seq(70, 100, by = 5)) +
+            scale_y_continuous(breaks = seq(20, 100, by = 10)) +
             theme(legend.title = element_blank(),
                   plot.title = element_text(face = "bold"),
                   plot.subtitle = element_text(color = "gray40",
                                                size = 10,
                                                face = "italic"))
     })
-
-
+    
+    # Subset data
+    selected_industries <- reactive({
+        req(input$date)
+        validate(need(!is.na(input$date[1]) & !is.na(input$date[2]), 
+                      "Error: Please provide both a start and an end date."))
+        validate(need(input$date[1] < input$date[2], 
+                      "Error: Start date should be earlier than end date."))
+        filter(bankruptcies, bankruptcies$industry %in% input$industry) %>% 
+            filter(date >= input$date[1] & date <= input$date[2])
+    })
+    
+    # Create plot
+    output$bank_plot <- renderPlot({
+        ggplot(selected_industries(), aes(x = date, y = amount, color = industry)) +
+            geom_line() +
+            theme_minimal() +
+            labs(x = NULL,
+                 y = "Bankruptcies",
+                 title = paste("Overview of bankruptcies per industry in Norway during the COVID-19 pandemic"),
+                 subtitle = "Data retrieved from SSB") +
+            scale_x_date(date_labels = "%B",
+                         date_breaks = "1 month") + 
+            scale_y_continuous(breaks = seq(0, 130, by = 10)) +
+            theme(legend.title = element_blank(),
+                  plot.title = element_text(face = "bold"),
+                  plot.subtitle = element_text(color = "gray40",
+                                               size = 10,
+                                               face = "italic"))
+    }) 
+    
+    
     
 }
 
