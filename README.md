@@ -10,6 +10,13 @@ Unfortunately, Yahoo only historical data from these indices up until 2018. We t
 Therefore we went to oslobors.no, homepage of Oslo Børs, and thought we could download data from the indicies there. 
 However, Oslo Børs is currently in the process of changing trading platforms and web sites containing stock data. Due to this we have not been able to find a way to load live, updated stock index data for Oslo Børs into R, as this is not available on Oslo Børs' current web pages or the new web pages (Euronext) as of today (28.11.20). The only option we could find for using stock data from Oslo Børs, is to download excel-files locally and load these into R. This is naturally not the best option as it is more interesting to look at updated data, but due to the situation it was the only option we could find. 
 
+## COVID-19 data
+
+
+## Google trends data
+
+
+
 ## SSB macroeconomic data
 Using SSBs own R package "PxWebApiData" we have downloaded live, updated data from SSB into R. The different macroeconomic values are presented in different data sets from SSB, with the variable names differing somewhat. The number of variables also vary between the different data sets. For example, the variable for macroeconomic sizes related to GDP is called "Makrost" and the sizes it is measured in is called "ContentsCode". On the other hand, the data set on unemployment conatins several variables in addition to the variable "ContentsCode": "Kjonn" and "Alder". The code is presented below to illutrate better: 
 
@@ -51,3 +58,4 @@ abcdefghijklmnop
 
 ## Creating dashboard
 abcdefghijklmnop
+
