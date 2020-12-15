@@ -5,8 +5,8 @@ account: katrinejordal
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 3399460
-bundleId: 3988726
+bundleId: 3991579
 url: https://katrinejordal.shinyapps.io/BAN400-term-paper/
-when: 1607977421.5906
+when: 1608028267.46146
 asMultiple: FALSE
 asStatic: FALSE
