@@ -1,0 +1,89 @@
+---
+title: "BAN 400"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+
+# Corona and Google searches
+
+## Column {data-width=333}
+
+### Covid statistics 
+
+```{r}
+daily_cases
+total_cases
+```
+
+## Column {data-width=333}
+
+### Google trend searches
+
+```{r}
+gtrend_corona
+gtrend_munnbind
+gtrend_vinmonopolet
+gtrend_netflix
+```
+
+## Column {data-width=333}
+
+### Corona cases vs search word
+
+```{r}
+corona_cases
+munnbind_cases
+vinmonopolet_cases
+netflix_cases
+```
+
+
+# Bankruptcies
+
+## Column {data-width=1000}
+
+###  Bankruptcies for individual industries in 2020
+
+```{r}
+plot1
+plot2
+plot3
+plot4
+plot5
+plot6
+plot7
+plot8
+plot9
+plot10
+plot11
+plot12
+plot13
+plot14
+plot15
+plot16
+plot17
+plot18
+plot19
+plot20
+plot21
+plot22
+plot23
+```
+
+
+# World map 
+
+## Column {data-width=1000}
+
+### Live map for all confirmed corona cases
+
+```{r}
+Livemap
+```
