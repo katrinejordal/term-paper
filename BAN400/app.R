@@ -262,7 +262,7 @@ ui <- fluidPage(
                         multiple = TRUE),
             
             # Select date range to be plotted
-            dateRangeInput(inputId = "date", 
+            dateRangeInput(inputId = "date_ind", 
                            label = strong("Select a date range"), 
                            start = "2020-01-01", end = today,
                            min = "2020-01-01", max = today),
@@ -313,13 +313,13 @@ server <- function(input, output) {
     
     # Subset data
     selected_industries <- reactive({
-        req(input$date)
-        validate(need(!is.na(input$date[1]) & !is.na(input$date[2]), 
+        req(input$date_ind)
+        validate(need(!is.na(input$date_ind[1]) & !is.na(input$date_ind[2]), 
                       "Error: Please provide both a start and an end date."))
-        validate(need(input$date[1] < input$date[2], 
+        validate(need(input$date_ind[1] < input$date_ind[2], 
                       "Error: Start date should be earlier than end date."))
         filter(bankruptcies, bankruptcies$industry %in% input$industry) %>% 
-            filter(date >= input$date[1] & date <= input$date[2])
+            filter(date >= input$date_ind[1] & date <= input$date_ind[2])
     })
     
     # Create plot
