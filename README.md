@@ -28,13 +28,12 @@ We also thought it would be interesting to see how certain google search trends 
 The last part of this script looks into SSB-data on bankruptcies per industry. We created a function that loads and manipulate data from SSB on bankruptcies, and use this function to create a data frame with data on bankruptcies per industry. This is then plotted in two different ways: one with all industries gathered using facet wrap, and one with a for loop creating a plot for each industry.  
 
 #### Presentation
-As mentioned, we wanted our results to be available to anyone, also those who are unfamiliar with R. For this part we chose to present our results in a flexdashbord, as the structure and content of the data frames varied somewhat. The dashboard consist of three pages. The first shows a live map of confirmed cases of covid-19 from all over the world. By using the Covid-19 package we can direcly get the live map and deliver it in the dashboard. This shows how easy and user friendly many of the packages are. The next site shows plots from Google searches and covid-19 cases. To improve this part we would want to get the function itself into the dashboard. By doing that we could write search words and get results direcly in the dashboard. The last site shows simple plots of bankruptcies. Last you will find the URL to axcess the Shiny app. Rmarkdown and flexdashboard have many oportunities we would like to look more into. For example using shiny directly in the Dashboard in orther to get everything in one place. We could also make as many pages, column, rows we would like in the dashboard and put in as many charts we could manage. The Dashboard is a very nice way to make a report and easely makes a HTML page without any HTML coding. We think it will be handy in the future to know about this part of R. It is versatile and can be used in many different projects and jobs. 
-
+As mentioned, we wanted our results to be available to anyone, also those who are unfamiliar with R. For this part we chose to present our results in a flexdashbord, as the structure and content of the data frames varied somewhat. The dashboard consist of three pages. The first site shows plots from Google searches and covid-19 cases. To improve this part we would want to get the function itself into the dashboard. By doing that we could write search words and get results direcly in the dashboard. The second site shows simple plots of bankruptcies per industry. The last page shows a live map of confirmed cases of covid-19 from all over the world. By using the Covid-19 package we can direcly get the live map and deliver it in the dashboard. This shows how easy and user friendly many of the packages are. Rmarkdown and flexdashboard have many oportunities we would like to look more into. For example using shiny directly in the Dashboard in orther to get everything in one place. The Dashboard is a very nice way to make a report and easely makes a HTML page without any HTML coding. We think it will be handy in the future to know about this part of R. It is versatile and can be used in many different projects and jobs. 
 
 ## Term paper part two: Shiny App
-We were also curios of Shiny App and wanted to learn this type of presentation, and decided to present parts of the term paper using Shiny. This part focuses on macroeconomic data from SSB. The script is created so that this data will update as new data becomes available at SSB. At the same time, the end dates used in the script will be updated to current day's date. 
+We were also curios of Shiny App and wanted to learn this type of presentation, and decided to present parts of the term paper using Shiny. This part focuses on macroeconomic data from SSB. The script is created so that this data will update as new data becomes available at SSB. At the same time, the end dates used in the script will be updated to current day's date. Link to shiny app: https://katrinejordal.shinyapps.io/BAN400-term-paper/?fbclid=IwAR3pk1e8yDumCBdpILBQ70rdmxfEgIyPYubjR-rW7U0IPpYa4hSXvDhRQAs
 
-## SSB macroeconomic data
+#### SSB macroeconomic data
 Using SSBs own R package "PxWebApiData" we have downloaded live, updated data from SSB into R. The different macroeconomic values are presented in different data sets from SSB, with variable names and number of variables differing somewhat. For example, the variable for macroeconomic sizes related to GDP is called "Makrost" and the sizes it is measured in is called "ContentsCode". On the other hand, the data set on unemployment conatins several variables in addition to the variable "ContentsCode": "Kjonn" and "Alder". The code is presented below to illutrate better: 
 
 #### GDP
@@ -76,10 +75,10 @@ When passing the cleanup function to the data, we tried to use a list combined w
 
 All SSB data (except bankruptcies per industry) is then merged into one single data frame, with a column to identify the different variables. 
 
-## User Interface
+#### User Interface
 For the UI part we have chosen to include two sets of input-areas in the sidebar panel, and two plots corresponding with these. The plots we decided to display in the Shiny App is (1) an overview of macroeconomic variables' development during the pandemic, and (2) an overview of bankruptcies per industry during the pandemic. The user can select variables and date range, and industries and date range. We wanted to keep the UI simple, minimalistic and easy to understand and use. Therefore, we also added some text describing how to select input. 
 
-## Server logic
+#### Server logic
 For both input we created some tests to make sure that the date input was correct, while displaying an error message if not. The code used for plotting is similar to other parts of the term paper, but adjusted so that it will be reactive with the user's input. 
 
 ## Some final reflections
